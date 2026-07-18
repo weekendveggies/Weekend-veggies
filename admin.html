@@ -149,6 +149,32 @@
     .prod-row{flex-wrap:wrap;}
   }
 
+  /* ---- Stats bar ---- */
+  .stats-bar{
+    max-width:1100px; margin:14px auto 0; padding:0 20px;
+    display:flex; gap:12px; flex-wrap:wrap;
+  }
+  .stat-card{
+    flex:1; min-width:140px; background:var(--card); border:1px solid var(--line);
+    border-radius:12px; padding:12px 16px; box-shadow:var(--shadow);
+  }
+  .stat-label{font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-soft); font-weight:700;}
+  .stat-value{font-size:22px; font-weight:700; font-family:Georgia,serif; margin-top:2px;}
+
+  /* ---- Search boxes ---- */
+  .search-row{max-width:1100px; margin:0 auto 14px; padding:0 20px; display:flex; gap:10px; flex-wrap:wrap;}
+  .search-input{
+    flex:1; min-width:200px; padding:10px 14px; border:1.5px solid var(--line);
+    border-radius:9px; font-size:13.5px; background:var(--card);
+  }
+
+  /* ---- Area grouping ---- */
+  .area-group-header{
+    font-weight:700; font-size:13.5px; color:var(--ink-soft); text-transform:uppercase;
+    letter-spacing:0.04em; margin:20px 0 10px; padding-bottom:6px; border-bottom:2px solid var(--line);
+  }
+  .area-group-header:first-child{margin-top:0;}
+
   /* ---- Print view (parcel slips) ---- */
   #printArea{display:none;}
   .parcel-slip{
@@ -194,6 +220,21 @@
     <button class="logout-btn" onclick="doLogout()">Log out</button>
   </div>
 
+  <div class="stats-bar">
+    <div class="stat-card">
+      <div class="stat-label">Today's orders</div>
+      <div class="stat-value" id="statTodayOrders">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Today's revenue</div>
+      <div class="stat-value" id="statTodayRevenue">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Pending deliveries</div>
+      <div class="stat-value" id="statPendingCount">—</div>
+    </div>
+  </div>
+
   <div class="tabs">
     <button class="tab-btn active" id="tabPendingBtn" onclick="showTab('pending')">🚚 Pending Deliveries</button>
     <button class="tab-btn" id="tabHistoryBtn" onclick="showTab('history')">🗂 Order History</button>
@@ -201,9 +242,14 @@
     <button class="tab-btn" id="tabProductsBtn" onclick="showTab('products')">🥕 Products</button>
   </div>
 
+  <div class="search-row">
+    <input class="search-input" id="orderSearchInput" placeholder="🔍 Search orders by name, phone, or order number..." oninput="renderOrderTabs()">
+  </div>
+
   <div class="panel">
     <div class="panel-section show" id="pendingPanel">
       <div class="products-toolbar">
+        <button class="btn btn-outline" onclick="exportOrdersCsv()">⬇️ Export all orders (CSV)</button>
         <button class="btn btn-outline" onclick="printPendingOrders()">🖨️ Print all pending orders</button>
       </div>
       <div id="pendingList"></div>
@@ -212,6 +258,9 @@
       <div id="historyList"></div>
     </div>
     <div class="panel-section" id="customersPanel">
+      <div class="search-row" style="margin:0 0 14px; padding:0;">
+        <input class="search-input" id="customerSearchInput" placeholder="🔍 Search customers by name or phone..." oninput="renderCustomersTable()">
+      </div>
       <table>
         <thead><tr><th>Name</th><th>Phone</th><th>Address</th><th>Area</th><th>Location</th><th>Last updated</th></tr></thead>
         <tbody id="customersTableBody"></tbody>
@@ -290,6 +339,8 @@ const db = firebase.firestore();
 let ordersUnsub = null;
 let customersUnsub = null;
 let productsUnsub = null;
+let allOrderDocs = [];
+let allCustomerDocs = [];
 
 const CATEGORY_NAMES = {
   leafy:"Leafy Greens", root:"Root Veg", gourd:"Gourds & Beans",
@@ -355,6 +406,88 @@ function showTab(tab){
   document.getElementById("productsPanel").classList.toggle("show", tab==="products");
 }
 
+function orderMatchesSearch(o, q){
+  if(!q) return true;
+  q = q.toLowerCase();
+  return (o.name||"").toLowerCase().includes(q)
+      || (o.phone||"").toLowerCase().includes(q)
+      || (o.orderNumber||"").toLowerCase().includes(q);
+}
+
+function renderOrderTabs(){
+  const q = (document.getElementById("orderSearchInput").value || "").trim();
+  const pendingList = document.getElementById("pendingList");
+  const historyList = document.getElementById("historyList");
+
+  const pendingDocs = allOrderDocs.filter(d => (d.data().status || "New") !== "Delivered" && orderMatchesSearch(d.data(), q));
+  const historyDocs = allOrderDocs.filter(d => (d.data().status || "New") === "Delivered" && orderMatchesSearch(d.data(), q));
+
+  // Group pending orders by delivery area, so staff can pack/deliver zone by zone
+  if(pendingDocs.length === 0){
+    pendingList.innerHTML = `<div class="empty-state">${q ? "No matching pending orders." : "No pending deliveries. New orders will appear here in real time."}</div>`;
+  } else {
+    const groups = {};
+    pendingDocs.forEach(d=>{
+      const area = d.data().area || "No area specified";
+      if(!groups[area]) groups[area] = [];
+      groups[area].push(d);
+    });
+    const areaNames = Object.keys(groups).sort();
+    pendingList.innerHTML = areaNames.map(area => `
+      <div class="area-group-header">📍 ${area} (${groups[area].length})</div>
+      ${groups[area].map(orderCardHtml).join("")}
+    `).join("");
+  }
+
+  historyList.innerHTML = historyDocs.length
+    ? historyDocs.map(orderCardHtml).join("")
+    : `<div class="empty-state">${q ? "No matching orders in history." : "No delivered orders yet."}</div>`;
+
+  updateStats();
+}
+
+function updateStats(){
+  const today = new Date().toDateString();
+  const todayDocs = allOrderDocs.filter(d=>{
+    const o = d.data();
+    return o.createdAt && o.createdAt.toDate && o.createdAt.toDate().toDateString() === today;
+  });
+  const todayRevenue = todayDocs.reduce((sum,d)=> sum + (d.data().total || 0), 0);
+  const pendingCount = allOrderDocs.filter(d => (d.data().status || "New") !== "Delivered").length;
+
+  document.getElementById("statTodayOrders").textContent = todayDocs.length;
+  document.getElementById("statTodayRevenue").textContent = "₹" + todayRevenue;
+  document.getElementById("statPendingCount").textContent = pendingCount;
+}
+
+function exportOrdersCsv(){
+  if(allOrderDocs.length === 0){
+    alert("No orders to export yet.");
+    return;
+  }
+  const escape = (val) => `"${String(val ?? "").replace(/"/g,'""')}"`;
+  const header = ["Order Number","Date","Status","Name","Phone","Address","Area","Slot","Items","Total","Note"];
+  const rows = allOrderDocs.map(doc=>{
+    const o = doc.data();
+    const when = o.createdAt && o.createdAt.toDate ? o.createdAt.toDate().toLocaleString() : "";
+    const itemsStr = (o.items||[]).map(it=>`${it.name} x${it.qty}${it.unit}`).join("; ");
+    return [
+      o.orderNumber || doc.id, when, o.status || "New", o.name || "", o.phone || "",
+      o.address || "", o.area || "", o.slot || "", itemsStr, o.total || 0, o.note || ""
+    ].map(escape).join(",");
+  });
+  const csv = [header.map(escape).join(","), ...rows].join("\n");
+  const blob = new Blob([csv], { type:"text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `weekend-veggies-orders-${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 function orderCardHtml(doc){
   const o = doc.data();
   const when = o.createdAt && o.createdAt.toDate ? o.createdAt.toDate().toLocaleString() : "Just now";
@@ -390,47 +523,50 @@ function orderCardHtml(doc){
   </div>`;
 }
 
+function customerMatchesSearch(c, id, q){
+  if(!q) return true;
+  q = q.toLowerCase();
+  return (c.name||"").toLowerCase().includes(q) || (c.phone||id||"").toLowerCase().includes(q);
+}
+
+function renderCustomersTable(){
+  const q = (document.getElementById("customerSearchInput").value || "").trim();
+  const tbody = document.getElementById("customersTableBody");
+  const emptyEl = document.getElementById("customersEmpty");
+  const filtered = allCustomerDocs.filter(doc => customerMatchesSearch(doc.data(), doc.id, q));
+
+  if(filtered.length === 0){
+    tbody.innerHTML = "";
+    emptyEl.innerHTML = `<div class="empty-state">${q ? "No matching customers." : "No customers yet."}</div>`;
+    return;
+  }
+  emptyEl.innerHTML = "";
+  tbody.innerHTML = filtered.map(doc=>{
+    const c = doc.data();
+    const when = c.updatedAt && c.updatedAt.toDate ? c.updatedAt.toDate().toLocaleDateString() : "";
+    const mapLink = (c.lat && c.lng) ? `<a href="https://maps.google.com/?q=${c.lat},${c.lng}" target="_blank" style="color:var(--green-dark); font-weight:600;">📍 Map</a>` : "—";
+    return `
+    <tr>
+      <td data-label="Name">${c.name || "—"}</td>
+      <td data-label="Phone">${c.phone || doc.id}</td>
+      <td data-label="Address">${c.address || "—"}</td>
+      <td data-label="Area">${c.area || "—"}</td>
+      <td data-label="Location">${mapLink}</td>
+      <td data-label="Last updated">${when}</td>
+    </tr>`;
+  }).join("");
+}
+
 function attachListeners(){
   ordersUnsub = db.collection("orders").orderBy("createdAt","desc").onSnapshot(snap=>{
-    const pendingList = document.getElementById("pendingList");
-    const historyList = document.getElementById("historyList");
-    const pendingDocs = snap.docs.filter(d => (d.data().status || "New") !== "Delivered");
-    const historyDocs = snap.docs.filter(d => (d.data().status || "New") === "Delivered");
-
-    pendingList.innerHTML = pendingDocs.length
-      ? pendingDocs.map(orderCardHtml).join("")
-      : `<div class="empty-state">No pending deliveries. New orders will appear here in real time.</div>`;
-
-    historyList.innerHTML = historyDocs.length
-      ? historyDocs.map(orderCardHtml).join("")
-      : `<div class="empty-state">No delivered orders yet.</div>`;
+    allOrderDocs = snap.docs;
+    renderOrderTabs();
   });
 
   customersUnsub = db.collection("customers").orderBy("updatedAt","desc").onSnapshot(snap=>{
-    const tbody = document.getElementById("customersTableBody");
-    const emptyEl = document.getElementById("customersEmpty");
-    if(snap.empty){
-      tbody.innerHTML = "";
-      emptyEl.innerHTML = `<div class="empty-state">No customers yet.</div>`;
-      return;
-    }
-    emptyEl.innerHTML = "";
-    tbody.innerHTML = snap.docs.map(doc=>{
-      const c = doc.data();
-      const when = c.updatedAt && c.updatedAt.toDate ? c.updatedAt.toDate().toLocaleDateString() : "";
-      const mapLink = (c.lat && c.lng) ? `<a href="https://maps.google.com/?q=${c.lat},${c.lng}" target="_blank" style="color:var(--green-dark); font-weight:600;">📍 Map</a>` : "—";
-      return `
-      <tr>
-        <td data-label="Name">${c.name || "—"}</td>
-        <td data-label="Phone">${c.phone || doc.id}</td>
-        <td data-label="Address">${c.address || "—"}</td>
-        <td data-label="Area">${c.area || "—"}</td>
-        <td data-label="Location">${mapLink}</td>
-        <td data-label="Last updated">${when}</td>
-      </tr>`;
-    }).join("");
+    allCustomerDocs = snap.docs;
+    renderCustomersTable();
   });
-
   productsUnsub = db.collection("products").orderBy("name").onSnapshot(snap=>{
     const list = document.getElementById("productsList");
     if(snap.empty){
