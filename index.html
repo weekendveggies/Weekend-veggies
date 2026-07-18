@@ -349,7 +349,7 @@ const DELIVERY_SLOTS = [
 ];
 
 // Paste the firebaseConfig object Firebase gave you when you registered your web app:
-  const firebaseConfig = {
+const firebaseConfig = {
   apiKey: "AIzaSyAeeG6BEUCugDNOkqsxe34sH1PituGN65o",
   authDomain: "weekend-veggies.firebaseapp.com",
   projectId: "weekend-veggies",
@@ -410,17 +410,23 @@ function useMyLocation(){
     return;
   }
   statusEl.className = "cust-status show new";
-  statusEl.textContent = "Getting your location...";
+  statusEl.textContent = "Getting your precise location... (this can take a few seconds)";
   navigator.geolocation.getCurrentPosition(
     pos=>{
       capturedLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      const acc = Math.round(pos.coords.accuracy);
       statusEl.className = "cust-status show found";
-      statusEl.textContent = "📍 Location captured — this helps us find your address faster.";
+      if(acc > 100){
+        statusEl.textContent = `📍 Location captured, but accuracy is only ~${acc}m. For a more precise pin: use your phone (not a laptop), make sure Location/GPS is turned on in your phone's settings, and try tapping the button again while outdoors or near a window.`;
+      } else {
+        statusEl.textContent = `📍 Location captured (accurate to ~${acc}m). Great!`;
+      }
     },
     err=>{
       statusEl.className = "cust-status show new";
       statusEl.textContent = "Couldn't get your location (you can still order without it).";
-    }
+    },
+    { enableHighAccuracy:true, timeout:15000, maximumAge:0 }
   );
 }
 
@@ -684,7 +690,9 @@ renderDrawer();
 
 // Live-sync the vegetable list & prices from Firestore (edited via the admin dashboard)
 db.collection("products").orderBy("name").onSnapshot(snap=>{
-  PRODUCTS = snap.docs.map(doc=>({ id: doc.id, ...doc.data() }));
+  PRODUCTS = snap.docs
+    .map(doc=>({ id: doc.id, ...doc.data() }))
+    .filter(p => p.inStock !== false); // hide anything marked out of stock
   productsLoaded = true;
   renderGrid();
   renderDrawer();
