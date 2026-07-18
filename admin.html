@@ -94,6 +94,7 @@
   }
   .badge-New{background:#FDEDEA; color:var(--tomato);}
   .badge-Confirmed{background:#FFF3DE; color:var(--carrot);}
+  .badge-OutforDelivery{background:#E4EEFB; color:#2A5DAB;}
   .badge-Delivered{background:#E8F3DE; color:var(--green-dark);}
   .status-select{
     border:1.5px solid var(--line); border-radius:8px; padding:7px 10px; font-size:12.5px; font-weight:600;
@@ -111,6 +112,62 @@
     tr{margin-bottom:12px; border-bottom:8px solid var(--paper); }
     td{border:none; padding:6px 14px;}
     td::before{content:attr(data-label); display:block; font-size:10.5px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.04em;}
+  }
+
+  /* ---- Products tab ---- */
+  .products-toolbar{display:flex; justify-content:flex-end; gap:10px; margin-bottom:14px; flex-wrap:wrap;}
+  .btn{
+    border:none; border-radius:9px; padding:9px 16px; font-weight:700; font-size:13px;
+  }
+  .btn-primary{background:var(--green); color:#fff;}
+  .btn-outline{background:var(--card); color:var(--ink); border:1.5px solid var(--line);}
+  .add-product-card{
+    background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:16px 18px; margin-bottom:18px; box-shadow:var(--shadow); display:none;
+  }
+  .add-product-card.show{display:block;}
+  .add-product-card h3{margin:0 0 12px; font-size:16px;}
+  .pform-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px;}
+  .pform-grid label{font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--ink-soft); display:block; margin-bottom:4px;}
+  .pform-grid input, .pform-grid select{
+    width:100%; padding:9px 10px; border:1.5px solid var(--line); border-radius:8px; font-size:13.5px;
+  }
+  .pform-actions{margin-top:14px; display:flex; gap:10px;}
+  .prod-row{
+    display:flex; align-items:center; gap:12px; background:var(--card);
+    border:1px solid var(--line); border-radius:12px; padding:10px 14px; margin-bottom:10px;
+  }
+  .prod-icon{font-size:26px; width:34px; text-align:center;}
+  .prod-info{flex:1; min-width:0;}
+  .prod-name{font-weight:700; font-size:14px;}
+  .prod-sub{font-size:12px; color:var(--ink-soft);}
+  .prod-price-input{width:80px; padding:7px 8px; border:1.5px solid var(--line); border-radius:8px; font-size:13.5px; font-weight:700;}
+  .prod-unit-input{width:70px; padding:7px 8px; border:1.5px solid var(--line); border-radius:8px; font-size:13.5px;}
+  .icon-btn{background:none; border:none; font-size:16px; padding:6px; cursor:pointer; color:var(--ink-soft);}
+  .icon-btn:hover{color:var(--tomato);}
+  @media (max-width:640px){
+    .prod-row{flex-wrap:wrap;}
+  }
+
+  /* ---- Print view (parcel slips) ---- */
+  #printArea{display:none;}
+  .parcel-slip{
+    border:2px dashed var(--ink); border-radius:10px; padding:16px 18px;
+    margin-bottom:16px; page-break-inside:avoid;
+  }
+  .parcel-slip h3{margin:0 0 4px; font-size:18px;}
+  .parcel-order-no{font-size:13px; color:var(--ink-soft); margin-bottom:10px;}
+  .parcel-row{font-size:14px; margin:4px 0;}
+  .parcel-items{margin:10px 0; padding:10px 0; border-top:1px dashed var(--line); border-bottom:1px dashed var(--line);}
+  .parcel-item-row{display:flex; justify-content:space-between; font-size:13.5px; padding:2px 0;}
+  .parcel-checks{margin-top:10px; font-size:13px; display:flex; gap:20px;}
+
+  @media print{
+    body *{ visibility:hidden; }
+    #printArea, #printArea *{ visibility:visible; }
+    #printArea{
+      display:block; position:absolute; top:0; left:0; width:100%;
+    }
   }
 </style>
 </head>
@@ -138,40 +195,128 @@
   </div>
 
   <div class="tabs">
-    <button class="tab-btn active" id="tabOrdersBtn" onclick="showTab('orders')">📦 Orders</button>
+    <button class="tab-btn active" id="tabPendingBtn" onclick="showTab('pending')">🚚 Pending Deliveries</button>
+    <button class="tab-btn" id="tabHistoryBtn" onclick="showTab('history')">🗂 Order History</button>
     <button class="tab-btn" id="tabCustomersBtn" onclick="showTab('customers')">👤 Customers</button>
+    <button class="tab-btn" id="tabProductsBtn" onclick="showTab('products')">🥕 Products</button>
   </div>
 
   <div class="panel">
-    <div class="panel-section show" id="ordersPanel">
-      <div id="ordersList"></div>
+    <div class="panel-section show" id="pendingPanel">
+      <div class="products-toolbar">
+        <button class="btn btn-outline" onclick="printPendingOrders()">🖨️ Print all pending orders</button>
+      </div>
+      <div id="pendingList"></div>
+    </div>
+    <div class="panel-section" id="historyPanel">
+      <div id="historyList"></div>
     </div>
     <div class="panel-section" id="customersPanel">
       <table>
-        <thead><tr><th>Name</th><th>Phone</th><th>Address</th><th>Area</th><th>Last updated</th></tr></thead>
+        <thead><tr><th>Name</th><th>Phone</th><th>Address</th><th>Area</th><th>Location</th><th>Last updated</th></tr></thead>
         <tbody id="customersTableBody"></tbody>
       </table>
       <div id="customersEmpty"></div>
     </div>
+    <div class="panel-section" id="productsPanel">
+      <div class="products-toolbar">
+        <button class="btn btn-outline" id="seedBtn" onclick="seedProducts()">🌱 Load starter list (one-time)</button>
+        <button class="btn btn-primary" onclick="toggleAddForm()">➕ Add vegetable</button>
+      </div>
+      <div class="add-product-card" id="addProductCard">
+        <h3>Add a new vegetable</h3>
+        <div class="pform-grid">
+          <div>
+            <label>Name (English)</label>
+            <input id="newName" placeholder="e.g. Radish">
+          </div>
+          <div>
+            <label>Name (Telugu)</label>
+            <input id="newTe" placeholder="e.g. ముల్లంగి">
+          </div>
+          <div>
+            <label>Emoji icon</label>
+            <input id="newIcon" placeholder="e.g. 🥕">
+          </div>
+          <div>
+            <label>Category</label>
+            <select id="newCat">
+              <option value="leafy">Leafy Greens</option>
+              <option value="root">Root Veg</option>
+              <option value="gourd">Gourds &amp; Beans</option>
+              <option value="exotic">Exotic</option>
+              <option value="salad">Salad &amp; Kitchen</option>
+            </select>
+          </div>
+          <div>
+            <label>Price (₹)</label>
+            <input id="newPrice" type="number" placeholder="40">
+          </div>
+          <div>
+            <label>Unit</label>
+            <input id="newUnit" placeholder="kg / bunch / pc">
+          </div>
+          <div>
+            <label>Photo URL (optional)</label>
+            <input id="newPhoto" placeholder="https://...">
+          </div>
+        </div>
+        <div class="pform-actions">
+          <button class="btn btn-primary" onclick="addProduct()">Save vegetable</button>
+          <button class="btn btn-outline" onclick="toggleAddForm()">Cancel</button>
+        </div>
+      </div>
+      <div id="productsList"></div>
+    </div>
   </div>
 </div>
 
+<div id="printArea"></div>
+
 <script>
 /* Paste the SAME firebaseConfig you used in weekend-veggies.html */
-  const firebaseConfig = {
-    apiKey: "AIzaSyAeeG6BEUCugDNOkqsxe34sH1PituGN65o",
-    authDomain: "weekend-veggies.firebaseapp.com",
-    projectId: "weekend-veggies",
-    storageBucket: "weekend-veggies.firebasestorage.app",
-    messagingSenderId: "114138191278",
-    appId: "1:114138191278:web:972aef04f98f8bdb4da43f"
-  };
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
 let ordersUnsub = null;
 let customersUnsub = null;
+let productsUnsub = null;
+
+const CATEGORY_NAMES = {
+  leafy:"Leafy Greens", root:"Root Veg", gourd:"Gourds & Beans",
+  exotic:"Exotic", salad:"Salad & Kitchen"
+};
+
+// One-time starter list — only used if you click "Load starter list" with an empty catalog
+const STARTER_PRODUCTS = [
+  { name:"Tomato", te:"టమాటా", icon:"🍅", cat:"salad", price:40, unit:"kg" },
+  { name:"Onion", te:"ఉల్లిపాయ", icon:"🧅", cat:"root", price:35, unit:"kg" },
+  { name:"Potato", te:"బంగాళదుంప", icon:"🥔", cat:"root", price:28, unit:"kg" },
+  { name:"Carrot", te:"క్యారెట్", icon:"🥕", cat:"root", price:45, unit:"kg" },
+  { name:"Spinach", te:"పాలకూర", icon:"🥬", cat:"leafy", price:25, unit:"bunch" },
+  { name:"Coriander", te:"కొత్తిమీర", icon:"🌿", cat:"leafy", price:10, unit:"bunch" },
+  { name:"Fenugreek Leaves", te:"మెంతికూర", icon:"🍀", cat:"leafy", price:20, unit:"bunch" },
+  { name:"Brinjal", te:"వంకాయ", icon:"🍆", cat:"exotic", price:38, unit:"kg" },
+  { name:"Capsicum", te:"క్యాప్సికం", icon:"🫑", cat:"salad", price:55, unit:"kg" },
+  { name:"Cucumber", te:"దోసకాయ", icon:"🥒", cat:"salad", price:30, unit:"kg" },
+  { name:"Cauliflower", te:"కాలీఫ్లవర్", icon:"🥦", cat:"gourd", price:35, unit:"pc" },
+  { name:"Broccoli", te:"బ్రోకలీ", icon:"🥦", cat:"exotic", price:80, unit:"kg" },
+  { name:"Beans", te:"చిక్కుడు కాయలు", icon:"🫛", cat:"gourd", price:48, unit:"kg" },
+  { name:"Bottle Gourd", te:"సొరకాయ", icon:"🥒", cat:"gourd", price:32, unit:"pc" },
+  { name:"Ginger", te:"అల్లం", icon:"🫚", cat:"exotic", price:90, unit:"250g" },
+  { name:"Garlic", te:"వెల్లుల్లి", icon:"🧄", cat:"exotic", price:70, unit:"250g" },
+  { name:"Green Chilli", te:"పచ్చిమిర్చి", icon:"🌶️", cat:"salad", price:15, unit:"250g" },
+  { name:"Lemon", te:"నిమ్మకాయ", icon:"🍋", cat:"salad", price:8, unit:"pc" },
+];
 
 function doLogin(){
   const email = document.getElementById("loginEmail").value.trim();
@@ -195,53 +340,70 @@ auth.onAuthStateChanged(user=>{
     document.getElementById("dashboard").style.display = "none";
     if(ordersUnsub) ordersUnsub();
     if(customersUnsub) customersUnsub();
+    if(productsUnsub) productsUnsub();
   }
 });
 
 function showTab(tab){
-  document.getElementById("tabOrdersBtn").classList.toggle("active", tab==="orders");
+  document.getElementById("tabPendingBtn").classList.toggle("active", tab==="pending");
+  document.getElementById("tabHistoryBtn").classList.toggle("active", tab==="history");
   document.getElementById("tabCustomersBtn").classList.toggle("active", tab==="customers");
-  document.getElementById("ordersPanel").classList.toggle("show", tab==="orders");
+  document.getElementById("tabProductsBtn").classList.toggle("active", tab==="products");
+  document.getElementById("pendingPanel").classList.toggle("show", tab==="pending");
+  document.getElementById("historyPanel").classList.toggle("show", tab==="history");
   document.getElementById("customersPanel").classList.toggle("show", tab==="customers");
+  document.getElementById("productsPanel").classList.toggle("show", tab==="products");
+}
+
+function orderCardHtml(doc){
+  const o = doc.data();
+  const when = o.createdAt && o.createdAt.toDate ? o.createdAt.toDate().toLocaleString() : "Just now";
+  const status = o.status || "New";
+  const orderNo = o.orderNumber || doc.id;
+  const itemsHtml = (o.items||[]).map(it=>`
+    <div class="order-item-row"><span>${it.name}${it.te ? " / "+it.te : ""} × ${it.qty} ${it.unit}</span><span>₹${it.lineTotal}</span></div>
+  `).join("");
+  const mapLink = (o.lat && o.lng) ? `<a href="https://maps.google.com/?q=${o.lat},${o.lng}" target="_blank" style="color:var(--green-dark); font-weight:600;">📍 View location</a>` : "";
+  return `
+  <div class="order-card">
+    <div class="order-head">
+      <div>
+        <div class="order-cust">${o.name || "—"} <span style="color:var(--ink-soft); font-weight:400;">· ${orderNo}</span></div>
+        <div class="order-meta">${o.phone || ""} · ${o.area || ""} · ${o.slot || ""}</div>
+        <div class="order-meta">${when}</div>
+      </div>
+      <div class="order-total">₹${o.total || 0}</div>
+    </div>
+    <div class="order-items">${itemsHtml}</div>
+    ${o.address ? `<div class="order-meta" style="margin-bottom:6px;">📍 ${o.address}</div>` : ""}
+    ${mapLink ? `<div class="order-meta" style="margin-bottom:6px;">${mapLink}</div>` : ""}
+    ${o.note ? `<div class="order-meta" style="margin-bottom:10px;">📝 ${o.note}</div>` : ""}
+    <div class="order-footer">
+      <span class="badge badge-${status.replace(/\s/g,'')}">${status}</span>
+      <select class="status-select" onchange="updateStatus('${doc.id}', this.value)">
+        <option value="New" ${status==="New"?"selected":""}>New</option>
+        <option value="Confirmed" ${status==="Confirmed"?"selected":""}>Confirmed</option>
+        <option value="Out for Delivery" ${status==="Out for Delivery"?"selected":""}>Out for Delivery</option>
+        <option value="Delivered" ${status==="Delivered"?"selected":""}>Delivered</option>
+      </select>
+    </div>
+  </div>`;
 }
 
 function attachListeners(){
   ordersUnsub = db.collection("orders").orderBy("createdAt","desc").onSnapshot(snap=>{
-    const list = document.getElementById("ordersList");
-    if(snap.empty){
-      list.innerHTML = `<div class="empty-state">No orders yet. New orders will appear here in real time.</div>`;
-      return;
-    }
-    list.innerHTML = snap.docs.map(doc=>{
-      const o = doc.data();
-      const when = o.createdAt && o.createdAt.toDate ? o.createdAt.toDate().toLocaleString() : "Just now";
-      const status = o.status || "New";
-      const itemsHtml = (o.items||[]).map(it=>`
-        <div class="order-item-row"><span>${it.name}${it.te ? " / "+it.te : ""} × ${it.qty} ${it.unit}</span><span>₹${it.lineTotal}</span></div>
-      `).join("");
-      return `
-      <div class="order-card">
-        <div class="order-head">
-          <div>
-            <div class="order-cust">${o.name || "—"}</div>
-            <div class="order-meta">${o.phone || ""} · ${o.area || ""} · ${o.slot || ""}</div>
-            <div class="order-meta">${when}</div>
-          </div>
-          <div class="order-total">₹${o.total || 0}</div>
-        </div>
-        <div class="order-items">${itemsHtml}</div>
-        ${o.address ? `<div class="order-meta" style="margin-bottom:10px;">📍 ${o.address}</div>` : ""}
-        ${o.note ? `<div class="order-meta" style="margin-bottom:10px;">📝 ${o.note}</div>` : ""}
-        <div class="order-footer">
-          <span class="badge badge-${status}">${status}</span>
-          <select class="status-select" onchange="updateStatus('${doc.id}', this.value)">
-            <option value="New" ${status==="New"?"selected":""}>New</option>
-            <option value="Confirmed" ${status==="Confirmed"?"selected":""}>Confirmed</option>
-            <option value="Delivered" ${status==="Delivered"?"selected":""}>Delivered</option>
-          </select>
-        </div>
-      </div>`;
-    }).join("");
+    const pendingList = document.getElementById("pendingList");
+    const historyList = document.getElementById("historyList");
+    const pendingDocs = snap.docs.filter(d => (d.data().status || "New") !== "Delivered");
+    const historyDocs = snap.docs.filter(d => (d.data().status || "New") === "Delivered");
+
+    pendingList.innerHTML = pendingDocs.length
+      ? pendingDocs.map(orderCardHtml).join("")
+      : `<div class="empty-state">No pending deliveries. New orders will appear here in real time.</div>`;
+
+    historyList.innerHTML = historyDocs.length
+      ? historyDocs.map(orderCardHtml).join("")
+      : `<div class="empty-state">No delivered orders yet.</div>`;
   });
 
   customersUnsub = db.collection("customers").orderBy("updatedAt","desc").onSnapshot(snap=>{
@@ -256,21 +418,180 @@ function attachListeners(){
     tbody.innerHTML = snap.docs.map(doc=>{
       const c = doc.data();
       const when = c.updatedAt && c.updatedAt.toDate ? c.updatedAt.toDate().toLocaleDateString() : "";
+      const mapLink = (c.lat && c.lng) ? `<a href="https://maps.google.com/?q=${c.lat},${c.lng}" target="_blank" style="color:var(--green-dark); font-weight:600;">📍 Map</a>` : "—";
       return `
       <tr>
         <td data-label="Name">${c.name || "—"}</td>
         <td data-label="Phone">${c.phone || doc.id}</td>
         <td data-label="Address">${c.address || "—"}</td>
         <td data-label="Area">${c.area || "—"}</td>
+        <td data-label="Location">${mapLink}</td>
         <td data-label="Last updated">${when}</td>
       </tr>`;
     }).join("");
   });
+
+  productsUnsub = db.collection("products").orderBy("name").onSnapshot(snap=>{
+    const list = document.getElementById("productsList");
+    if(snap.empty){
+      list.innerHTML = `<div class="empty-state">No vegetables yet. Click "Load starter list" for a ready-made catalog, or "Add vegetable" to start from scratch.</div>`;
+      return;
+    }
+    list.innerHTML = snap.docs.map(doc=>{
+      const p = doc.data();
+      return `
+      <div class="prod-row">
+        <div class="prod-icon">${p.icon || "🥬"}</div>
+        <div class="prod-info">
+          <div class="prod-name">${p.name}${p.te ? " / "+p.te : ""}</div>
+          <div class="prod-sub">${CATEGORY_NAMES[p.cat] || p.cat}</div>
+        </div>
+        <span style="font-size:12.5px; color:var(--ink-soft);">₹</span>
+        <input class="prod-price-input" type="number" value="${p.price}"
+          onchange="updateProductField('${doc.id}','price', Number(this.value))">
+        <input class="prod-unit-input" value="${p.unit || ''}"
+          onchange="updateProductField('${doc.id}','unit', this.value)">
+        <button class="icon-btn" title="Delete" onclick="deleteProduct('${doc.id}','${(p.name||'').replace(/'/g,"")}')">🗑️</button>
+      </div>`;
+    }).join("");
+  });
 }
 
-function updateStatus(orderId, status){
-  db.collection("orders").doc(orderId).update({ status }).catch(err=>{
+function toggleAddForm(){
+  document.getElementById("addProductCard").classList.toggle("show");
+}
+
+async function addProduct(){
+  const name = document.getElementById("newName").value.trim();
+  const te = document.getElementById("newTe").value.trim();
+  const icon = document.getElementById("newIcon").value.trim() || "🥬";
+  const cat = document.getElementById("newCat").value;
+  const price = Number(document.getElementById("newPrice").value);
+  const unit = document.getElementById("newUnit").value.trim() || "kg";
+  const photo = document.getElementById("newPhoto").value.trim();
+
+  if(!name || !price){
+    alert("Please enter at least a name and a price.");
+    return;
+  }
+  const data = { name, te, icon, cat, price, unit };
+  if(photo) data.photo = photo;
+
+  try{
+    await db.collection("products").add(data);
+    document.getElementById("newName").value = "";
+    document.getElementById("newTe").value = "";
+    document.getElementById("newIcon").value = "";
+    document.getElementById("newPrice").value = "";
+    document.getElementById("newUnit").value = "";
+    document.getElementById("newPhoto").value = "";
+    toggleAddForm();
+  } catch(err){
+    alert("Couldn't add the vegetable — please try again.");
+    console.error(err);
+  }
+}
+
+function updateProductField(productId, field, value){
+  db.collection("products").doc(productId).update({ [field]: value }).catch(err=>{
+    alert("Couldn't save that change — check your connection and try again.");
+    console.error(err);
+  });
+}
+
+function deleteProduct(productId, name){
+  if(!confirm(`Remove "${name}" from your catalog? Customers will no longer see it.`)) return;
+  db.collection("products").doc(productId).delete().catch(err=>{
+    alert("Couldn't delete — please try again.");
+    console.error(err);
+  });
+}
+
+async function seedProducts(){
+  const existing = await db.collection("products").limit(1).get();
+  if(!existing.empty){
+    alert("Your catalog already has vegetables in it, so the starter list won't be added again. Use 'Add vegetable' for new items.");
+    return;
+  }
+  if(!confirm(`This will add ${STARTER_PRODUCTS.length} starter vegetables to your catalog. Continue?`)) return;
+  const btn = document.getElementById("seedBtn");
+  btn.disabled = true; btn.textContent = "Loading...";
+  try{
+    const batch = db.batch();
+    STARTER_PRODUCTS.forEach(p=>{
+      const ref = db.collection("products").doc();
+      batch.set(ref, p);
+    });
+    await batch.commit();
+  } catch(err){
+    alert("Couldn't load the starter list — please try again.");
+    console.error(err);
+  }
+  btn.disabled = false; btn.textContent = "🌱 Load starter list (one-time)";
+}
+
+const STATUS_MESSAGES = {
+  "Confirmed": (o) => `Hi ${o.name}! Your Weekend Veggies order ${o.orderNumber || ""} (₹${o.total}) is confirmed for ${o.slot}. We'll message you again when it's out for delivery. Thank you! 🥬`,
+  "Out for Delivery": (o) => `Hi ${o.name}! Your Weekend Veggies order ${o.orderNumber || ""} is out for delivery and should reach you soon at ${o.area}. 🚚`,
+  "Delivered": (o) => `Hi ${o.name}! Your Weekend Veggies order ${o.orderNumber || ""} has been delivered. Thank you for ordering with us — see you next weekend! 🥬`
+};
+
+async function updateStatus(orderId, status){
+  try{
+    await db.collection("orders").doc(orderId).update({ status });
+  } catch(err){
     alert("Couldn't update status — check your connection and try again.");
+    console.error(err);
+    return;
+  }
+  // For these stages, open a pre-filled WhatsApp message to the customer — you just tap Send
+  const template = STATUS_MESSAGES[status];
+  if(template){
+    try{
+      const doc = await db.collection("orders").doc(orderId).get();
+      const o = doc.data();
+      if(o && o.phone){
+        const msg = template(o);
+        window.open(`https://wa.me/${o.phone.replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`, "_blank");
+      }
+    } catch(err){ console.error(err); }
+  }
+}
+
+function printPendingOrders(){
+  const printArea = document.getElementById("printArea");
+  db.collection("orders").orderBy("createdAt","desc").get().then(snap=>{
+    const pending = snap.docs.filter(d => (d.data().status || "New") !== "Delivered");
+    if(pending.length === 0){
+      alert("No pending orders to print.");
+      return;
+    }
+    printArea.innerHTML = pending.map(doc=>{
+      const o = doc.data();
+      const orderNo = o.orderNumber || doc.id;
+      const itemsHtml = (o.items||[]).map(it=>`
+        <div class="parcel-item-row"><span>${it.name}${it.te ? " / "+it.te : ""} × ${it.qty} ${it.unit}</span><span>₹${it.lineTotal}</span></div>
+      `).join("");
+      return `
+      <div class="parcel-slip">
+        <h3>${o.name || "—"}</h3>
+        <div class="parcel-order-no">Order ${orderNo} · ${o.status || "New"}</div>
+        <div class="parcel-row"><strong>Phone:</strong> ${o.phone || ""}</div>
+        <div class="parcel-row"><strong>Address:</strong> ${o.address || ""}</div>
+        <div class="parcel-row"><strong>Area / Slot:</strong> ${o.area || ""} · ${o.slot || ""}</div>
+        ${o.note ? `<div class="parcel-row"><strong>Note:</strong> ${o.note}</div>` : ""}
+        <div class="parcel-items">${itemsHtml}</div>
+        <div class="parcel-row"><strong>Total: ₹${o.total || 0}</strong></div>
+        <div class="parcel-checks">
+          <span>☐ Packed</span>
+          <span>☐ Checked</span>
+          <span>☐ Loaded</span>
+        </div>
+      </div>`;
+    }).join("");
+    window.print();
+  }).catch(err=>{
+    alert("Couldn't load orders to print — please try again.");
     console.error(err);
   });
 }
