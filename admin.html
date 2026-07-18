@@ -439,11 +439,12 @@ function attachListeners(){
     }
     list.innerHTML = snap.docs.map(doc=>{
       const p = doc.data();
+      const outOfStock = p.inStock === false;
       return `
-      <div class="prod-row">
+      <div class="prod-row" style="${outOfStock ? 'opacity:0.55;' : ''}">
         <div class="prod-icon">${p.icon || "🥬"}</div>
         <div class="prod-info">
-          <div class="prod-name">${p.name}${p.te ? " / "+p.te : ""}</div>
+          <div class="prod-name">${p.name}${p.te ? " / "+p.te : ""} ${outOfStock ? '<span style="color:var(--tomato); font-weight:700; font-size:11.5px;">· OUT OF STOCK</span>' : ''}</div>
           <div class="prod-sub">${CATEGORY_NAMES[p.cat] || p.cat}</div>
         </div>
         <span style="font-size:12.5px; color:var(--ink-soft);">₹</span>
@@ -451,7 +452,7 @@ function attachListeners(){
           onchange="updateProductField('${doc.id}','price', Number(this.value))">
         <input class="prod-unit-input" value="${p.unit || ''}"
           onchange="updateProductField('${doc.id}','unit', this.value)">
-        <button class="icon-btn" title="Delete" onclick="deleteProduct('${doc.id}','${(p.name||'').replace(/'/g,"")}')">🗑️</button>
+        <button class="btn btn-outline" style="padding:6px 10px; font-size:12px;" onclick="updateProductField('${doc.id}','inStock', ${outOfStock})">${outOfStock ? '✅ Back in stock' : '🚫 Mark out of stock'}</button>
       </div>`;
     }).join("");
   });
@@ -474,7 +475,7 @@ async function addProduct(){
     alert("Please enter at least a name and a price.");
     return;
   }
-  const data = { name, te, icon, cat, price, unit };
+  const data = { name, te, icon, cat, price, unit, inStock: true };
   if(photo) data.photo = photo;
 
   try{
@@ -495,14 +496,6 @@ async function addProduct(){
 function updateProductField(productId, field, value){
   db.collection("products").doc(productId).update({ [field]: value }).catch(err=>{
     alert("Couldn't save that change — check your connection and try again.");
-    console.error(err);
-  });
-}
-
-function deleteProduct(productId, name){
-  if(!confirm(`Remove "${name}" from your catalog? Customers will no longer see it.`)) return;
-  db.collection("products").doc(productId).delete().catch(err=>{
-    alert("Couldn't delete — please try again.");
     console.error(err);
   });
 }
