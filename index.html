@@ -349,14 +349,14 @@ const DELIVERY_SLOTS = [
 ];
 
 // Paste the firebaseConfig object Firebase gave you when you registered your web app:
-  const firebaseConfig = {
-    apiKey: "AIzaSyAeeG6BEUCugDNOkqsxe34sH1PituGN65o",
-    authDomain: "weekend-veggies.firebaseapp.com",
-    projectId: "weekend-veggies",
-    storageBucket: "weekend-veggies.firebasestorage.app",
-    messagingSenderId: "114138191278",
-    appId: "1:114138191278:web:972aef04f98f8bdb4da43f"
-  };
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 /* =========================================================================== */
@@ -369,27 +369,28 @@ const CATEGORIES = [
   { id:"salad",  name:"Salad & Kitchen", color:"var(--tomato)" },
 ];
 
-const PRODUCTS = [
-  // Add a "photo" field with an image URL to show a real photo instead of the emoji.
-  // Example: { id:1, name:"Tomato", icon:"🍅", photo:"https://example.com/tomato.jpg", cat:"salad", price:40, unit:"kg" },
-  { id:1, name:"Tomato", te:"టమాటా", icon:"🍅", cat:"salad", price:40, unit:"kg" },
-  { id:2, name:"Onion", te:"ఉల్లిపాయ", icon:"🧅", cat:"root", price:35, unit:"kg" },
-  { id:3, name:"Potato", te:"బంగాళదుంప", icon:"🥔", cat:"root", price:28, unit:"kg" },
-  { id:4, name:"Carrot", te:"క్యారెట్", icon:"🥕", cat:"root", price:45, unit:"kg" },
-  { id:5, name:"Spinach", te:"పాలకూర", icon:"🥬", cat:"leafy", price:25, unit:"bunch" },
-  { id:6, name:"Coriander", te:"కొత్తిమీర", icon:"🌿", cat:"leafy", price:10, unit:"bunch" },
-  { id:7, name:"Fenugreek Leaves", te:"మెంతికూర", icon:"🍀", cat:"leafy", price:20, unit:"bunch" },
-  { id:8, name:"Brinjal", te:"వంకాయ", icon:"🍆", cat:"exotic", price:38, unit:"kg" },
-  { id:9, name:"Capsicum", te:"క్యాప్సికం", icon:"🫑", cat:"salad", price:55, unit:"kg" },
-  { id:10, name:"Cucumber", te:"దోసకాయ", icon:"🥒", cat:"salad", price:30, unit:"kg" },
-  { id:11, name:"Cauliflower", te:"కాలీఫ్లవర్", icon:"🥦", cat:"gourd", price:35, unit:"pc" },
-  { id:12, name:"Broccoli", te:"బ్రోకలీ", icon:"🥦", cat:"exotic", price:80, unit:"kg" },
-  { id:13, name:"Beans", te:"చిక్కుడు కాయలు", icon:"🫛", cat:"gourd", price:48, unit:"kg" },
-  { id:14, name:"Bottle Gourd", te:"సొరకాయ", icon:"🥒", cat:"gourd", price:32, unit:"pc" },
-  { id:15, name:"Ginger", te:"అల్లం", icon:"🫚", cat:"exotic", price:90, unit:"250g" },
-  { id:16, name:"Garlic", te:"వెల్లుల్లి", icon:"🧄", cat:"exotic", price:70, unit:"250g" },
-  { id:17, name:"Green Chilli", te:"పచ్చిమిర్చి", icon:"🌶️", cat:"salad", price:15, unit:"250g" },
-  { id:18, name:"Lemon", te:"నిమ్మకాయ", icon:"🍋", cat:"salad", price:8, unit:"pc" },
+// SEED_PRODUCTS is only used once, by the admin dashboard's "Load starter list"
+// button, to pre-fill your products in Firestore. After that, all editing happens
+// in the admin dashboard's Products tab — not in this file.
+const SEED_PRODUCTS = [
+  { name:"Tomato", te:"టమాటా", icon:"🍅", cat:"salad", price:40, unit:"kg" },
+  { name:"Onion", te:"ఉల్లిపాయ", icon:"🧅", cat:"root", price:35, unit:"kg" },
+  { name:"Potato", te:"బంగాళదుంప", icon:"🥔", cat:"root", price:28, unit:"kg" },
+  { name:"Carrot", te:"క్యారెట్", icon:"🥕", cat:"root", price:45, unit:"kg" },
+  { name:"Spinach", te:"పాలకూర", icon:"🥬", cat:"leafy", price:25, unit:"bunch" },
+  { name:"Coriander", te:"కొత్తిమీర", icon:"🌿", cat:"leafy", price:10, unit:"bunch" },
+  { name:"Fenugreek Leaves", te:"మెంతికూర", icon:"🍀", cat:"leafy", price:20, unit:"bunch" },
+  { name:"Brinjal", te:"వంకాయ", icon:"🍆", cat:"exotic", price:38, unit:"kg" },
+  { name:"Capsicum", te:"క్యాప్సికం", icon:"🫑", cat:"salad", price:55, unit:"kg" },
+  { name:"Cucumber", te:"దోసకాయ", icon:"🥒", cat:"salad", price:30, unit:"kg" },
+  { name:"Cauliflower", te:"కాలీఫ్లవర్", icon:"🥦", cat:"gourd", price:35, unit:"pc" },
+  { name:"Broccoli", te:"బ్రోకలీ", icon:"🥦", cat:"exotic", price:80, unit:"kg" },
+  { name:"Beans", te:"చిక్కుడు కాయలు", icon:"🫛", cat:"gourd", price:48, unit:"kg" },
+  { name:"Bottle Gourd", te:"సొరకాయ", icon:"🥒", cat:"gourd", price:32, unit:"pc" },
+  { name:"Ginger", te:"అల్లం", icon:"🫚", cat:"exotic", price:90, unit:"250g" },
+  { name:"Garlic", te:"వెల్లుల్లి", icon:"🧄", cat:"exotic", price:70, unit:"250g" },
+  { name:"Green Chilli", te:"పచ్చిమిర్చి", icon:"🌶️", cat:"salad", price:15, unit:"250g" },
+  { name:"Lemon", te:"నిమ్మకాయ", icon:"🍋", cat:"salad", price:8, unit:"pc" },
 ];
 
 const catColor = id => (CATEGORIES.find(c=>c.id===id)||{}).color || "var(--green)";
@@ -397,6 +398,43 @@ const catName  = id => (CATEGORIES.find(c=>c.id===id)||{}).name || "";
 
 let activeCat = "all";
 let cart = {}; // id -> qty
+let PRODUCTS = []; // populated live from Firestore below
+let productsLoaded = false;
+let capturedLocation = null; // { lat, lng } once customer shares location
+
+function useMyLocation(){
+  const statusEl = document.getElementById("locStatus");
+  if(!navigator.geolocation){
+    statusEl.className = "cust-status show new";
+    statusEl.textContent = "Location isn't supported on this device — you can still order without it.";
+    return;
+  }
+  statusEl.className = "cust-status show new";
+  statusEl.textContent = "Getting your location...";
+  navigator.geolocation.getCurrentPosition(
+    pos=>{
+      capturedLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      statusEl.className = "cust-status show found";
+      statusEl.textContent = "📍 Location captured — this helps us find your address faster.";
+    },
+    err=>{
+      statusEl.className = "cust-status show new";
+      statusEl.textContent = "Couldn't get your location (you can still order without it).";
+    }
+  );
+}
+
+async function getNextOrderNumber(){
+  const counterRef = db.collection("meta").doc("orderCounter");
+  const next = await db.runTransaction(async (tx)=>{
+    const doc = await tx.get(counterRef);
+    const current = doc.exists ? (doc.data().count || 0) : 0;
+    const n = current + 1;
+    tx.set(counterRef, { count: n }, { merge:true });
+    return n;
+  });
+  return "WV-" + String(next).padStart(4,"0");
+}
 
 function renderChips(){
   const row = document.getElementById("chipRow");
@@ -411,6 +449,14 @@ function setCategory(id){ activeCat = id; renderChips(); renderGrid(); }
 
 function renderGrid(){
   const grid = document.getElementById("grid");
+  if(!productsLoaded){
+    grid.innerHTML = `<div style="grid-column:1/-1; text-align:center; color:var(--ink-soft); padding:40px;">Loading this week's vegetables...</div>`;
+    return;
+  }
+  if(PRODUCTS.length === 0){
+    grid.innerHTML = `<div style="grid-column:1/-1; text-align:center; color:var(--ink-soft); padding:40px;">No vegetables listed yet — check back soon!</div>`;
+    return;
+  }
   const list = activeCat==="all" ? PRODUCTS : PRODUCTS.filter(p=>p.cat===activeCat);
   grid.innerHTML = list.map(p => {
     const qty = cart[p.id] || 0;
@@ -426,11 +472,11 @@ function renderGrid(){
       <div class="veg-unit">${catName(p.cat)}</div>
       <div class="qty-row">
         <div class="stepper">
-          <button onclick="changeQty(${p.id},-1)">−</button>
+          <button onclick="changeQty('${p.id}',-1)">−</button>
           <span>${qty}</span>
-          <button onclick="changeQty(${p.id},1)">+</button>
+          <button onclick="changeQty('${p.id}',1)">+</button>
         </div>
-        <button class="add-btn" onclick="changeQty(${p.id},1)">${qty>0?'Added':'Add'}</button>
+        <button class="add-btn" onclick="changeQty('${p.id}',1)">${qty>0?'Added':'Add'}</button>
       </div>
     </div>`;
   }).join("");
@@ -478,7 +524,7 @@ function renderDrawer(){
       <div class="ci-info">
         <div class="ci-name">${p.name}${p.te ? " / "+p.te : ""} × ${qty} ${p.unit}</div>
         <div class="ci-price">₹${p.price} each · ₹${p.price*qty}</div>
-        <button class="remove-btn" onclick="changeQty(${p.id},-${qty})">Remove</button>
+        <button class="remove-btn" onclick="changeQty('${p.id}',-${qty})">Remove</button>
       </div>
     </div>`;
   }).join("");
@@ -499,6 +545,8 @@ function renderDrawer(){
       <input id="custName" type="text" placeholder="e.g. Priya Sharma">
       <label for="custAddress">Delivery address</label>
       <textarea id="custAddress" placeholder="House no., street, landmark..."></textarea>
+      <button type="button" class="check-btn" style="margin-top:8px;" onclick="useMyLocation()">📍 Share my location (helps delivery)</button>
+      <div class="cust-status" id="locStatus"></div>
       <label for="custArea">Delivery area</label>
       <select id="custArea">${areaOptions}</select>
       <label for="custSlot">Delivery day &amp; slot (Sat/Sun only)</label>
@@ -539,6 +587,9 @@ async function lookupCustomer(){
       document.getElementById("custName").value = c.name || "";
       document.getElementById("custAddress").value = c.address || "";
       if(c.area) document.getElementById("custArea").value = c.area;
+      if(c.lat && c.lng){
+        capturedLocation = { lat:c.lat, lng:c.lng };
+      }
       statusEl.className = "cust-status show found";
       statusEl.textContent = `Welcome back, ${c.name || "there"}! Your details are filled in below.`;
     } else {
@@ -570,6 +621,7 @@ async function sendToWhatsApp(){
   }
 
   const waBtn = document.getElementById("waBtn");
+  if(waBtn.disabled) return; // guard against double-tap creating duplicate orders
   waBtn.disabled = true; waBtn.textContent = "Saving your order...";
 
   const items = entries.map(([id,qty])=>{
@@ -578,31 +630,46 @@ async function sendToWhatsApp(){
   });
   const total = cartTotal();
 
+  let orderNumber = "";
   try{
-    // Save/update the customer profile, keyed by phone number
-    await db.collection("customers").doc(phone).set({
+    orderNumber = await getNextOrderNumber();
+
+    const customerData = {
       name, phone, address, area,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    }, { merge:true });
+    };
+    if(capturedLocation){
+      customerData.lat = capturedLocation.lat;
+      customerData.lng = capturedLocation.lng;
+    }
+    // Save/update the customer profile, keyed by phone number
+    await db.collection("customers").doc(phone).set(customerData, { merge:true });
 
-    // Save the order for the admin dashboard
-    await db.collection("orders").add({
-      name, phone, address, area, slot, note, items, total,
+    const orderData = {
+      orderNumber, name, phone, address, area, slot, note, items, total,
       status:"New",
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
+    };
+    if(capturedLocation){
+      orderData.lat = capturedLocation.lat;
+      orderData.lng = capturedLocation.lng;
+    }
+    // Save the order for the admin dashboard, keyed by the unique order number so re-submits can't duplicate it
+    await db.collection("orders").doc(orderNumber).set(orderData);
   } catch(err){
     console.error(err);
     alert("Couldn't save your order to our system, but you can still send it on WhatsApp — please double check with us there.");
   }
 
   let msg = "Hi Weekend Veggies! I'd like to place an order for this weekend:\n\n";
+  if(orderNumber) msg += `Order ${orderNumber}\n\n`;
   items.forEach(p=>{
     msg += `• ${p.name}${p.te ? " / "+p.te : ""} — ${p.qty} ${p.unit} (₹${p.lineTotal})\n`;
   });
   msg += `\nTotal: ₹${total}\n\n`;
   msg += `Name: ${name}\nPhone: ${phone}\nAddress: ${address}\nArea: ${area}\nSlot: ${slot}\n`;
   if(note) msg += `Note: ${note}\n`;
+  if(capturedLocation) msg += `Location: https://maps.google.com/?q=${capturedLocation.lat},${capturedLocation.lng}\n`;
   msg += "\nPlease confirm availability. Thank you!";
 
   const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`;
@@ -614,6 +681,19 @@ async function sendToWhatsApp(){
 renderChips();
 renderGrid();
 renderDrawer();
+
+// Live-sync the vegetable list & prices from Firestore (edited via the admin dashboard)
+db.collection("products").orderBy("name").onSnapshot(snap=>{
+  PRODUCTS = snap.docs.map(doc=>({ id: doc.id, ...doc.data() }));
+  productsLoaded = true;
+  renderGrid();
+  renderDrawer();
+}, err=>{
+  console.error("Could not load products:", err);
+  productsLoaded = true;
+  renderGrid();
+});
+
 </script>
 
 </body>
