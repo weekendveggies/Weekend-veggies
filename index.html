@@ -299,7 +299,7 @@
     <h1>Order midweek,<br>enjoy it on the weekend.</h1>
     <p>We take orders Wednesday to Friday and deliver only on Saturdays and Sundays — fresh baskets picked just for the weekend. Fill your basket below and send the order straight to our WhatsApp.</p>
     <div class="hero-badges">
-      <span class="hero-badge">🗓️ Order Wed–Fri</span>
+      <span class="hero-badge" id="orderWindowBadge">🗓️ Order Wed–Fri</span>
       <span class="hero-badge">🚚 Delivered Sat &amp; Sun only</span>
       <span class="hero-badge">💬 Confirm on WhatsApp</span>
     </div>
@@ -441,6 +441,43 @@ async function getNextOrderNumber(){
   });
   return "WV-" + String(next).padStart(4,"0");
 }
+
+// Ordering is open Wednesday, Thursday, Friday — closing at ORDER_CUTOFF_HOUR (24hr) on Friday
+const ORDER_CUTOFF_HOUR = 21; // 9 PM — change this if you want a different cutoff time
+
+function formatDuration(ms){
+  const totalMinutes = Math.max(0, Math.floor(ms/60000));
+  const days = Math.floor(totalMinutes / (60*24));
+  const hours = Math.floor((totalMinutes % (60*24)) / 60);
+  const mins = totalMinutes % 60;
+  if(days > 0) return `${days}d ${hours}h`;
+  if(hours > 0) return `${hours}h ${mins}m`;
+  return `${mins}m`;
+}
+
+function updateOrderWindowBadge(){
+  const el = document.getElementById("orderWindowBadge");
+  if(!el) return;
+  const now = new Date();
+  const day = now.getDay(); // 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
+  const cutoffToday = new Date(now); cutoffToday.setHours(ORDER_CUTOFF_HOUR,0,0,0);
+  const cutoffLabel = ORDER_CUTOFF_HOUR > 12 ? (ORDER_CUTOFF_HOUR-12)+" PM" : ORDER_CUTOFF_HOUR+" AM";
+
+  if(day === 5 && now < cutoffToday){
+    el.textContent = `🗓️ Ordering closes in ${formatDuration(cutoffToday - now)}`;
+  } else if(day === 3 || day === 4){
+    el.textContent = `🗓️ Ordering open — closes Friday ${cutoffLabel}`;
+  } else {
+    let daysUntilWed = (3 - day + 7) % 7;
+    if(daysUntilWed === 0) daysUntilWed = 7;
+    const nextWed = new Date(now);
+    nextWed.setDate(now.getDate() + daysUntilWed);
+    nextWed.setHours(0,0,0,0);
+    el.textContent = `🗓️ Ordering opens in ${formatDuration(nextWed - now)} (Wed)`;
+  }
+}
+updateOrderWindowBadge();
+setInterval(updateOrderWindowBadge, 60000);
 
 function renderChips(){
   const row = document.getElementById("chipRow");
