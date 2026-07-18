@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Weekend Veggies — Admin Dashboard</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --paper: #FBF6EC;
+    --paper-dim: #F3EBDA;
+    --ink: #143B22;
+    --ink-soft: #52684F;
+    --green: #5FA82A;
+    --green-dark: #1F5C2E;
+    --tomato: #C1442D;
+    --carrot: #DB8A1F;
+    --line: rgba(36,48,31,0.14);
+    --card: #FFFFFF;
+    --shadow: 0 2px 0 rgba(36,48,31,0.06), 0 10px 24px -12px rgba(36,48,31,0.25);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  h1,h2,.display{font-family:Georgia,"Times New Roman",serif; font-weight:700; letter-spacing:-0.01em;}
+  button{font-family:inherit; cursor:pointer;}
+
+  /* ---- Login screen ---- */
+  .login-wrap{
+    min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px;
+  }
+  .login-card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:32px 28px; width:100%; max-width:340px; box-shadow:var(--shadow);
+  }
+  .login-card h1{font-size:22px; margin:0 0 4px;}
+  .login-card p{font-size:13px; color:var(--ink-soft); margin:0 0 20px;}
+  .login-card label{display:block; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-soft); margin:14px 0 6px;}
+  .login-card input{
+    width:100%; padding:11px 12px; border:1.5px solid var(--line); border-radius:9px; font-size:14px;
+  }
+  .login-btn{
+    width:100%; margin-top:20px; background:var(--green); color:#fff; border:none;
+    padding:12px; border-radius:9px; font-weight:700; font-size:14px;
+  }
+  .login-error{color:var(--tomato); font-size:12.5px; margin-top:10px; display:none;}
+
+  /* ---- Dashboard ---- */
+  .topbar{
+    background:var(--ink); color:var(--paper); padding:14px 20px;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .topbar .display{font-size:19px;}
+  .logout-btn{
+    background:none; border:1px solid rgba(255,255,255,0.3); color:var(--paper);
+    padding:7px 14px; border-radius:999px; font-size:12.5px; font-weight:600;
+  }
+  .tabs{
+    max-width:1100px; margin:18px auto 0; padding:0 20px;
+    display:flex; gap:10px;
+  }
+  .tab-btn{
+    border:1.5px solid var(--line); background:var(--card); color:var(--ink-soft);
+    padding:8px 16px; border-radius:999px; font-weight:600; font-size:13.5px;
+  }
+  .tab-btn.active{background:var(--ink); color:var(--paper); border-color:var(--ink);}
+  .panel{max-width:1100px; margin:0 auto; padding:16px 20px 60px;}
+  .panel-section{display:none;}
+  .panel-section.show{display:block;}
+
+  .empty-state{
+    text-align:center; color:var(--ink-soft); padding:60px 20px; font-size:14px;
+    background:var(--card); border-radius:14px; border:1px solid var(--line);
+  }
+
+  .order-card{
+    background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:16px 18px; margin-bottom:14px; box-shadow:var(--shadow);
+  }
+  .order-head{display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;}
+  .order-cust{font-weight:700; font-size:15.5px;}
+  .order-meta{font-size:12.5px; color:var(--ink-soft); margin-top:2px;}
+  .order-total{font-size:19px; font-weight:700; font-family:Georgia,serif; white-space:nowrap;}
+  .order-items{margin:12px 0; padding:12px 0; border-top:1px dashed var(--line); border-bottom:1px dashed var(--line);}
+  .order-item-row{display:flex; justify-content:space-between; font-size:13.5px; padding:3px 0;}
+  .order-footer{display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;}
+  .badge{
+    display:inline-block; padding:4px 10px; border-radius:999px; font-size:11.5px; font-weight:700;
+  }
+  .badge-New{background:#FDEDEA; color:var(--tomato);}
+  .badge-Confirmed{background:#FFF3DE; color:var(--carrot);}
+  .badge-Delivered{background:#E8F3DE; color:var(--green-dark);}
+  .status-select{
+    border:1.5px solid var(--line); border-radius:8px; padding:7px 10px; font-size:12.5px; font-weight:600;
+    background:var(--card); color:var(--ink);
+  }
+
+  table{width:100%; border-collapse:collapse; background:var(--card); border-radius:14px; overflow:hidden; box-shadow:var(--shadow);}
+  th,td{text-align:left; padding:11px 14px; font-size:13.5px; border-bottom:1px solid var(--line);}
+  th{background:var(--paper-dim); color:var(--ink-soft); font-size:11.5px; text-transform:uppercase; letter-spacing:0.04em;}
+  tr:last-child td{border-bottom:none;}
+
+  @media (max-width:600px){
+    table, thead, tbody, th, td, tr{display:block;}
+    thead{display:none;}
+    tr{margin-bottom:12px; border-bottom:8px solid var(--paper); }
+    td{border:none; padding:6px 14px;}
+    td::before{content:attr(data-label); display:block; font-size:10.5px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.04em;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== Login screen ===== -->
+<div class="login-wrap" id="loginWrap">
+  <div class="login-card">
+    <h1 class="display">Weekend Veggies</h1>
+    <p>Staff login — admin dashboard</p>
+    <label for="loginEmail">Email</label>
+    <input id="loginEmail" type="email" placeholder="you@example.com">
+    <label for="loginPass">Password</label>
+    <input id="loginPass" type="password" placeholder="Your password">
+    <button class="login-btn" onclick="doLogin()">Log in</button>
+    <div class="login-error" id="loginError"></div>
+  </div>
+</div>
+
+<!-- ===== Dashboard (hidden until logged in) ===== -->
+<div id="dashboard" style="display:none;">
+  <div class="topbar">
+    <div class="display">Weekend Veggies · Admin</div>
+    <button class="logout-btn" onclick="doLogout()">Log out</button>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" id="tabOrdersBtn" onclick="showTab('orders')">📦 Orders</button>
+    <button class="tab-btn" id="tabCustomersBtn" onclick="showTab('customers')">👤 Customers</button>
+  </div>
+
+  <div class="panel">
+    <div class="panel-section show" id="ordersPanel">
+      <div id="ordersList"></div>
+    </div>
+    <div class="panel-section" id="customersPanel">
+      <table>
+        <thead><tr><th>Name</th><th>Phone</th><th>Address</th><th>Area</th><th>Last updated</th></tr></thead>
+        <tbody id="customersTableBody"></tbody>
+      </table>
+      <div id="customersEmpty"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* Paste the SAME firebaseConfig you used in weekend-veggies.html */
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+let ordersUnsub = null;
+let customersUnsub = null;
+
+function doLogin(){
+  const email = document.getElementById("loginEmail").value.trim();
+  const pass = document.getElementById("loginPass").value;
+  const errEl = document.getElementById("loginError");
+  errEl.style.display = "none";
+  auth.signInWithEmailAndPassword(email, pass).catch(err=>{
+    errEl.textContent = "Login failed — check your email and password.";
+    errEl.style.display = "block";
+  });
+}
+function doLogout(){ auth.signOut(); }
+
+auth.onAuthStateChanged(user=>{
+  if(user){
+    document.getElementById("loginWrap").style.display = "none";
+    document.getElementById("dashboard").style.display = "block";
+    attachListeners();
+  } else {
+    document.getElementById("loginWrap").style.display = "flex";
+    document.getElementById("dashboard").style.display = "none";
+    if(ordersUnsub) ordersUnsub();
+    if(customersUnsub) customersUnsub();
+  }
+});
+
+function showTab(tab){
+  document.getElementById("tabOrdersBtn").classList.toggle("active", tab==="orders");
+  document.getElementById("tabCustomersBtn").classList.toggle("active", tab==="customers");
+  document.getElementById("ordersPanel").classList.toggle("show", tab==="orders");
+  document.getElementById("customersPanel").classList.toggle("show", tab==="customers");
+}
+
+function attachListeners(){
+  ordersUnsub = db.collection("orders").orderBy("createdAt","desc").onSnapshot(snap=>{
+    const list = document.getElementById("ordersList");
+    if(snap.empty){
+      list.innerHTML = `<div class="empty-state">No orders yet. New orders will appear here in real time.</div>`;
+      return;
+    }
+    list.innerHTML = snap.docs.map(doc=>{
+      const o = doc.data();
+      const when = o.createdAt && o.createdAt.toDate ? o.createdAt.toDate().toLocaleString() : "Just now";
+      const status = o.status || "New";
+      const itemsHtml = (o.items||[]).map(it=>`
+        <div class="order-item-row"><span>${it.name}${it.te ? " / "+it.te : ""} × ${it.qty} ${it.unit}</span><span>₹${it.lineTotal}</span></div>
+      `).join("");
+      return `
+      <div class="order-card">
+        <div class="order-head">
+          <div>
+            <div class="order-cust">${o.name || "—"}</div>
+            <div class="order-meta">${o.phone || ""} · ${o.area || ""} · ${o.slot || ""}</div>
+            <div class="order-meta">${when}</div>
+          </div>
+          <div class="order-total">₹${o.total || 0}</div>
+        </div>
+        <div class="order-items">${itemsHtml}</div>
+        ${o.address ? `<div class="order-meta" style="margin-bottom:10px;">📍 ${o.address}</div>` : ""}
+        ${o.note ? `<div class="order-meta" style="margin-bottom:10px;">📝 ${o.note}</div>` : ""}
+        <div class="order-footer">
+          <span class="badge badge-${status}">${status}</span>
+          <select class="status-select" onchange="updateStatus('${doc.id}', this.value)">
+            <option value="New" ${status==="New"?"selected":""}>New</option>
+            <option value="Confirmed" ${status==="Confirmed"?"selected":""}>Confirmed</option>
+            <option value="Delivered" ${status==="Delivered"?"selected":""}>Delivered</option>
+          </select>
+        </div>
+      </div>`;
+    }).join("");
+  });
+
+  customersUnsub = db.collection("customers").orderBy("updatedAt","desc").onSnapshot(snap=>{
+    const tbody = document.getElementById("customersTableBody");
+    const emptyEl = document.getElementById("customersEmpty");
+    if(snap.empty){
+      tbody.innerHTML = "";
+      emptyEl.innerHTML = `<div class="empty-state">No customers yet.</div>`;
+      return;
+    }
+    emptyEl.innerHTML = "";
+    tbody.innerHTML = snap.docs.map(doc=>{
+      const c = doc.data();
+      const when = c.updatedAt && c.updatedAt.toDate ? c.updatedAt.toDate().toLocaleDateString() : "";
+      return `
+      <tr>
+        <td data-label="Name">${c.name || "—"}</td>
+        <td data-label="Phone">${c.phone || doc.id}</td>
+        <td data-label="Address">${c.address || "—"}</td>
+        <td data-label="Area">${c.area || "—"}</td>
+        <td data-label="Last updated">${when}</td>
+      </tr>`;
+    }).join("");
+  });
+}
+
+function updateStatus(orderId, status){
+  db.collection("orders").doc(orderId).update({ status }).catch(err=>{
+    alert("Couldn't update status — check your connection and try again.");
+    console.error(err);
+  });
+}
+</script>
+
+</body>
+</html>

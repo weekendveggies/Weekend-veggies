@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Weekend Veggies — Fresh Veggies, Happy Families</title>
+<!-- Firebase (database for customers & orders) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --paper: #FBF6EC;
+    --paper-dim: #F3EBDA;
+    --ink: #143B22;
+    --ink-soft: #52684F;
+    --green: #5FA82A;
+    --green-dark: #1F5C2E;
+    --tomato: #C1442D;
+    --carrot: #DB8A1F;
+    --brinjal: #6B4C6E;
+    --leaf: #6DBF2C;
+    --line: rgba(36,48,31,0.14);
+    --card: #FFFFFF;
+    --shadow: 0 2px 0 rgba(36,48,31,0.06), 0 10px 24px -12px rgba(36,48,31,0.25);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,.display{
+    font-family:Georgia,"Times New Roman",serif;
+    font-weight:700;
+    letter-spacing:-0.01em;
+  }
+  .eyebrow{
+    font-size:11px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    font-weight:600;
+  }
+  a{color:inherit;}
+  button{font-family:inherit;}
+
+  /* ---------- Header ---------- */
+  .topbar{
+    position:sticky; top:0; z-index:40;
+    background:var(--ink);
+    color:var(--paper);
+    padding:12px 20px;
+    display:flex; align-items:center; justify-content:space-between;
+    box-shadow:0 4px 14px rgba(0,0,0,0.15);
+  }
+  .brand{display:flex; align-items:center; gap:10px;}
+  .brand-mark{
+    width:36px;height:36px;border-radius:8px;
+    background:linear-gradient(135deg,var(--green) 0%,var(--leaf) 100%);
+    display:flex;align-items:center;justify-content:center;
+    font-size:19px;
+    box-shadow:inset 0 -3px 0 rgba(0,0,0,0.15);
+  }
+  .brand-name{font-size:19px; line-height:1;}
+  .brand-tag{font-size:10.5px; color:#C9CDBE; letter-spacing:0.08em; text-transform:uppercase; margin-top:2px;}
+  .cart-btn{
+    background:var(--paper); color:var(--ink);
+    border:none; border-radius:999px;
+    padding:9px 16px; font-weight:700; font-size:14px;
+    display:flex; align-items:center; gap:8px;
+    cursor:pointer;
+    box-shadow:var(--shadow);
+  }
+  .cart-count{
+    background:var(--tomato); color:#fff;
+    border-radius:999px; min-width:20px; height:20px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:11.5px; padding:0 5px;
+  }
+
+  /* ---------- Hero (market signboard) ---------- */
+  .hero{
+    background:
+      repeating-linear-gradient(115deg, rgba(255,255,255,0.035) 0 2px, transparent 2px 26px),
+      linear-gradient(180deg, var(--green-dark), var(--green));
+    color:var(--paper);
+    padding:40px 20px 46px;
+    position:relative;
+    overflow:hidden;
+  }
+  .hero-inner{max-width:900px; margin:0 auto; position:relative; z-index:2;}
+  .hero h1{font-size:clamp(28px,5vw,42px); margin:6px 0 10px; line-height:1.05;}
+  .hero p{max-width:480px; color:#DCE6D3; font-size:15px; line-height:1.55; margin:0 0 18px;}
+  .hero-badges{display:flex; flex-wrap:wrap; gap:8px;}
+  .hero-badge{
+    background:rgba(255,255,255,0.12);
+    border:1px solid rgba(255,255,255,0.25);
+    padding:6px 12px; border-radius:999px; font-size:12.5px;
+    display:flex; align-items:center; gap:6px;
+  }
+  .peel{
+    position:absolute; right:-40px; top:-30px; font-size:220px;
+    opacity:0.11; transform:rotate(12deg); z-index:1; user-select:none;
+  }
+
+  /* ---------- Category chips ---------- */
+  .chip-row{
+    max-width:1100px; margin:22px auto 0; padding:0 20px;
+    display:flex; gap:10px; overflow-x:auto; scrollbar-width:none;
+  }
+  .chip-row::-webkit-scrollbar{display:none;}
+  .chip{
+    flex:0 0 auto;
+    border:1.5px solid var(--line);
+    background:var(--card);
+    padding:8px 15px; border-radius:999px;
+    font-size:13.5px; font-weight:600; cursor:pointer;
+    display:flex; align-items:center; gap:7px;
+    color:var(--ink-soft);
+    transition:all .15s ease;
+  }
+  .chip.active{
+    background:var(--ink); color:var(--paper); border-color:var(--ink);
+  }
+  .dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
+
+  /* ---------- Product grid ---------- */
+  .grid{
+    max-width:1100px; margin:0 auto; padding:24px 20px 80px;
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr));
+    gap:18px;
+  }
+  .card{
+    background:var(--card);
+    border-radius:14px;
+    padding:16px 14px 14px;
+    position:relative;
+    box-shadow:var(--shadow);
+    border:1px solid var(--line);
+    display:flex; flex-direction:column;
+  }
+  .card-top{
+    height:3px; margin:-16px -14px 12px;
+    border-radius:14px 14px 0 0;
+  }
+  .tag{
+    position:absolute; top:-10px; right:10px;
+    background:var(--paper); border:1.5px solid var(--ink);
+    color:var(--ink); font-weight:700; font-size:12.5px;
+    padding:4px 9px; border-radius:6px;
+    transform:rotate(4deg);
+    font-family:Georgia,serif;
+    box-shadow:2px 3px 0 rgba(36,48,31,0.12);
+  }
+  .tag::after{
+    content:""; position:absolute; top:-4px; left:50%;
+    width:6px;height:6px; margin-left:-3px;
+    background:var(--ink); border-radius:50%;
+  }
+  .veg-icon{font-size:38px; margin-bottom:6px;}
+  .veg-photo{
+    width:100%; height:92px; object-fit:cover;
+    border-radius:9px; margin-bottom:8px; display:block;
+    background:var(--paper-dim);
+  }
+  .veg-name{font-size:16px; font-weight:700; margin:0 0 2px;}
+  .veg-name-te{font-size:13px; color:var(--ink-soft); margin:0 0 2px;}
+  .veg-unit{font-size:12px; color:var(--ink-soft); margin-bottom:12px;}
+  .qty-row{
+    margin-top:auto;
+    display:flex; align-items:center; justify-content:space-between;
+    gap:8px;
+  }
+  .stepper{
+    display:flex; align-items:center; border:1.5px solid var(--line);
+    border-radius:9px; overflow:hidden;
+  }
+  .stepper button{
+    width:28px;height:30px; border:none; background:var(--paper-dim);
+    font-size:16px; cursor:pointer; color:var(--ink);
+  }
+  .stepper span{width:26px; text-align:center; font-weight:700; font-size:13.5px;}
+  .add-btn{
+    background:var(--green); color:#fff; border:none;
+    border-radius:9px; padding:7px 13px; font-weight:700;
+    font-size:13px; cursor:pointer; white-space:nowrap;
+  }
+  .add-btn:active{transform:scale(0.97);}
+
+  /* ---------- Cart drawer ---------- */
+  .overlay{
+    position:fixed; inset:0; background:rgba(36,48,31,0.45);
+    opacity:0; pointer-events:none; transition:opacity .25s ease; z-index:49;
+  }
+  .overlay.show{opacity:1; pointer-events:auto;}
+  .drawer{
+    position:fixed; top:0; right:0; height:100%; width:min(420px,100%);
+    background:var(--paper); z-index:50;
+    transform:translateX(100%); transition:transform .3s ease;
+    display:flex; flex-direction:column;
+    box-shadow:-10px 0 30px rgba(0,0,0,0.2);
+  }
+  .drawer.show{transform:translateX(0);}
+  .drawer-head{
+    padding:18px 20px; background:var(--ink); color:var(--paper);
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .drawer-head h2{margin:0; font-size:19px;}
+  .close-btn{background:none;border:none;color:var(--paper);font-size:22px;cursor:pointer;line-height:1;}
+  .drawer-body{flex:1; overflow-y:auto; padding:16px 20px;}
+  .empty-cart{text-align:center; color:var(--ink-soft); padding:60px 10px; font-size:14px;}
+  .cart-item{
+    display:flex; align-items:center; gap:12px;
+    padding:12px 0; border-bottom:1px solid var(--line);
+  }
+  .cart-item .veg-icon{font-size:26px; margin:0;}
+  .ci-info{flex:1;}
+  .ci-name{font-weight:700; font-size:14px;}
+  .ci-price{font-size:12.5px; color:var(--ink-soft);}
+  .remove-btn{background:none;border:none;color:var(--tomato);font-size:12px;font-weight:700;cursor:pointer;margin-top:3px;}
+
+  .form-block{margin-top:18px; padding-top:16px; border-top:1.5px dashed var(--line);}
+  .form-block label{
+    display:block; font-size:12px; font-weight:700; text-transform:uppercase;
+    letter-spacing:0.05em; color:var(--ink-soft); margin:12px 0 6px;
+  }
+  .form-block input, .form-block select, .form-block textarea{
+    width:100%; padding:10px 12px; border:1.5px solid var(--line);
+    border-radius:9px; font-size:14px; background:#fff; color:var(--ink);
+    font-family:inherit;
+  }
+  .form-block textarea{resize:vertical; min-height:52px;}
+  .phone-row{display:flex; gap:8px; align-items:flex-end;}
+  .phone-row input{flex:1;}
+  .check-btn{
+    background:var(--ink); color:var(--paper); border:none;
+    border-radius:9px; padding:0 14px; height:41px; font-weight:700;
+    font-size:13px; cursor:pointer; white-space:nowrap;
+  }
+  .check-btn:disabled{opacity:0.5; cursor:not-allowed;}
+  .cust-status{
+    font-size:12.5px; border-radius:8px; padding:8px 10px; margin-top:10px;
+    display:none;
+  }
+  .cust-status.show{display:block;}
+  .cust-status.found{background:#E8F3DE; color:var(--green-dark);}
+  .cust-status.new{background:var(--paper-dim); color:var(--ink-soft);}
+
+  .drawer-foot{
+    padding:16px 20px 20px; border-top:1px solid var(--line); background:var(--paper);
+  }
+  .total-row{
+    display:flex; justify-content:space-between; align-items:baseline;
+    margin-bottom:12px;
+  }
+  .total-row .label{font-size:13px; color:var(--ink-soft);}
+  .total-row .amount{font-size:22px; font-weight:700; font-family:Georgia,serif;}
+  .whatsapp-btn{
+    width:100%; background:#25D366; color:#0b2b16; border:none;
+    padding:13px; border-radius:11px; font-weight:700; font-size:15px;
+    cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;
+    box-shadow:0 6px 0 #128C41;
+  }
+  .whatsapp-btn:active{transform:translateY(3px); box-shadow:0 3px 0 #128C41;}
+  .whatsapp-btn:disabled{background:#c9d6ce; color:#8a978f; box-shadow:none; cursor:not-allowed;}
+  .hint{font-size:11.5px; color:var(--ink-soft); text-align:center; margin-top:10px; line-height:1.5;}
+
+  footer{
+    text-align:center; padding:26px 20px 40px; color:var(--ink-soft); font-size:12.5px;
+  }
+  @media (max-width:480px){
+    .grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px;}
+    .hero{padding:30px 16px 36px;}
+    .peel{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-mark">🧺</div>
+    <div>
+      <div class="brand-name display">Weekend Veggies</div>
+      <div class="brand-tag">Weekly market at your doorstep</div>
+    </div>
+  </div>
+  <button class="cart-btn" onclick="openCart()">
+    🧺 Cart <span class="cart-count" id="cartCount">0</span>
+  </button>
+</div>
+
+<div class="hero">
+  <span class="peel">🥕</span>
+  <div class="hero-inner">
+    <span class="eyebrow" style="color:#C7E896;">This week's basket</span>
+    <h1>Order midweek,<br>enjoy it on the weekend.</h1>
+    <p>We take orders Wednesday to Friday and deliver only on Saturdays and Sundays — fresh baskets picked just for the weekend. Fill your basket below and send the order straight to our WhatsApp.</p>
+    <div class="hero-badges">
+      <span class="hero-badge">🗓️ Order Wed–Fri</span>
+      <span class="hero-badge">🚚 Delivered Sat &amp; Sun only</span>
+      <span class="hero-badge">💬 Confirm on WhatsApp</span>
+    </div>
+  </div>
+</div>
+
+<div class="chip-row" id="chipRow"></div>
+<div class="grid" id="grid"></div>
+
+<footer>
+  Weekend Veggies · Orders taken Wednesday–Friday, delivered Saturday &amp; Sunday · Update the WhatsApp number in the code before going live
+</footer>
+
+<div class="overlay" id="overlay" onclick="closeCart()"></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-head">
+    <h2>Your basket</h2>
+    <button class="close-btn" onclick="closeCart()">✕</button>
+  </div>
+  <div class="drawer-body" id="drawerBody"></div>
+  <div class="drawer-foot">
+    <div class="total-row">
+      <span class="label">Total</span>
+      <span class="amount" id="totalAmount">₹0</span>
+    </div>
+    <button class="whatsapp-btn" id="waBtn" onclick="sendToWhatsApp()">
+      ✅ Send order on WhatsApp
+    </button>
+    <div class="hint">You'll be taken to WhatsApp with your order pre-filled. Nothing is charged here — payment is confirmed by our team on chat.</div>
+  </div>
+</div>
+
+<script>
+/* ================= CONFIG — edit these for your business ================= */
+const WHATSAPP_NUMBER = "919393453977"; // country code + number, no + or spaces
+const ORDER_WINDOW = "Wednesday – Friday"; // when you accept orders
+const DELIVERY_AREAS = [
+  "Zone 1 — Central", "Zone 2 — North", "Zone 3 — South",
+  "Zone 4 — East", "Zone 5 — West"
+];
+// Delivery only happens Saturday & Sunday — pick a day + time window
+const DELIVERY_SLOTS = [
+  "Saturday · Morning (7:00–9:00 AM)",
+  "Saturday · Evening (5:00–7:00 PM)",
+  "Sunday · Morning (7:00–9:00 AM)",
+  "Sunday · Evening (5:00–7:00 PM)"
+];
+
+// Paste the firebaseConfig object Firebase gave you when you registered your web app:
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+/* =========================================================================== */
+
+const CATEGORIES = [
+  { id:"leafy",  name:"Leafy Greens", color:"var(--leaf)" },
+  { id:"root",   name:"Root Veg",     color:"var(--carrot)" },
+  { id:"gourd",  name:"Gourds & Beans", color:"var(--green)" },
+  { id:"exotic", name:"Exotic",       color:"var(--brinjal)" },
+  { id:"salad",  name:"Salad & Kitchen", color:"var(--tomato)" },
+];
+
+const PRODUCTS = [
+  // Add a "photo" field with an image URL to show a real photo instead of the emoji.
+  // Example: { id:1, name:"Tomato", icon:"🍅", photo:"https://example.com/tomato.jpg", cat:"salad", price:40, unit:"kg" },
+  { id:1, name:"Tomato", te:"టమాటా", icon:"🍅", cat:"salad", price:40, unit:"kg" },
+  { id:2, name:"Onion", te:"ఉల్లిపాయ", icon:"🧅", cat:"root", price:35, unit:"kg" },
+  { id:3, name:"Potato", te:"బంగాళదుంప", icon:"🥔", cat:"root", price:28, unit:"kg" },
+  { id:4, name:"Carrot", te:"క్యారెట్", icon:"🥕", cat:"root", price:45, unit:"kg" },
+  { id:5, name:"Spinach", te:"పాలకూర", icon:"🥬", cat:"leafy", price:25, unit:"bunch" },
+  { id:6, name:"Coriander", te:"కొత్తిమీర", icon:"🌿", cat:"leafy", price:10, unit:"bunch" },
+  { id:7, name:"Fenugreek Leaves", te:"మెంతికూర", icon:"🍀", cat:"leafy", price:20, unit:"bunch" },
+  { id:8, name:"Brinjal", te:"వంకాయ", icon:"🍆", cat:"exotic", price:38, unit:"kg" },
+  { id:9, name:"Capsicum", te:"క్యాప్సికం", icon:"🫑", cat:"salad", price:55, unit:"kg" },
+  { id:10, name:"Cucumber", te:"దోసకాయ", icon:"🥒", cat:"salad", price:30, unit:"kg" },
+  { id:11, name:"Cauliflower", te:"కాలీఫ్లవర్", icon:"🥦", cat:"gourd", price:35, unit:"pc" },
+  { id:12, name:"Broccoli", te:"బ్రోకలీ", icon:"🥦", cat:"exotic", price:80, unit:"kg" },
+  { id:13, name:"Beans", te:"చిక్కుడు కాయలు", icon:"🫛", cat:"gourd", price:48, unit:"kg" },
+  { id:14, name:"Bottle Gourd", te:"సొరకాయ", icon:"🥒", cat:"gourd", price:32, unit:"pc" },
+  { id:15, name:"Ginger", te:"అల్లం", icon:"🫚", cat:"exotic", price:90, unit:"250g" },
+  { id:16, name:"Garlic", te:"వెల్లుల్లి", icon:"🧄", cat:"exotic", price:70, unit:"250g" },
+  { id:17, name:"Green Chilli", te:"పచ్చిమిర్చి", icon:"🌶️", cat:"salad", price:15, unit:"250g" },
+  { id:18, name:"Lemon", te:"నిమ్మకాయ", icon:"🍋", cat:"salad", price:8, unit:"pc" },
+];
+
+const catColor = id => (CATEGORIES.find(c=>c.id===id)||{}).color || "var(--green)";
+const catName  = id => (CATEGORIES.find(c=>c.id===id)||{}).name || "";
+
+let activeCat = "all";
+let cart = {}; // id -> qty
+
+function renderChips(){
+  const row = document.getElementById("chipRow");
+  const all = [{id:"all", name:"All Vegetables", color:"var(--ink)"}, ...CATEGORIES];
+  row.innerHTML = all.map(c => `
+    <div class="chip ${activeCat===c.id?'active':''}" onclick="setCategory('${c.id}')">
+      <span class="dot" style="background:${c.color}"></span>${c.name}
+    </div>
+  `).join("");
+}
+function setCategory(id){ activeCat = id; renderChips(); renderGrid(); }
+
+function renderGrid(){
+  const grid = document.getElementById("grid");
+  const list = activeCat==="all" ? PRODUCTS : PRODUCTS.filter(p=>p.cat===activeCat);
+  grid.innerHTML = list.map(p => {
+    const qty = cart[p.id] || 0;
+    return `
+    <div class="card">
+      <div class="card-top" style="background:${catColor(p.cat)}"></div>
+      <div class="tag">₹${p.price}/${p.unit}</div>
+      ${p.photo
+        ? `<img class="veg-photo" src="${p.photo}" alt="${p.name}" onerror="this.outerHTML='<div class=&quot;veg-icon&quot;>${p.icon}</div>'">`
+        : `<div class="veg-icon">${p.icon}</div>`}
+      <div class="veg-name">${p.name}</div>
+      ${p.te ? `<div class="veg-name-te">${p.te}</div>` : ""}
+      <div class="veg-unit">${catName(p.cat)}</div>
+      <div class="qty-row">
+        <div class="stepper">
+          <button onclick="changeQty(${p.id},-1)">−</button>
+          <span>${qty}</span>
+          <button onclick="changeQty(${p.id},1)">+</button>
+        </div>
+        <button class="add-btn" onclick="changeQty(${p.id},1)">${qty>0?'Added':'Add'}</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function changeQty(id, delta){
+  const current = cart[id] || 0;
+  const next = Math.max(0, current + delta);
+  if(next === 0){ delete cart[id]; } else { cart[id] = next; }
+  renderGrid();
+  renderCartCount();
+  renderDrawer();
+}
+
+function renderCartCount(){
+  const count = Object.values(cart).reduce((a,b)=>a+b,0);
+  document.getElementById("cartCount").textContent = count;
+}
+
+function cartTotal(){
+  return Object.entries(cart).reduce((sum,[id,qty])=>{
+    const p = PRODUCTS.find(x=>x.id==id);
+    return sum + (p ? p.price*qty : 0);
+  },0);
+}
+
+function renderDrawer(){
+  const body = document.getElementById("drawerBody");
+  const entries = Object.entries(cart);
+  const waBtn = document.getElementById("waBtn");
+
+  if(entries.length === 0){
+    body.innerHTML = `<div class="empty-cart">Your basket is empty.<br>Add some vegetables to get started 🥕</div>`;
+    document.getElementById("totalAmount").textContent = "₹0";
+    waBtn.disabled = true;
+    return;
+  }
+  waBtn.disabled = false;
+
+  let itemsHtml = entries.map(([id,qty])=>{
+    const p = PRODUCTS.find(x=>x.id==id);
+    return `
+    <div class="cart-item">
+      <div class="veg-icon">${p.icon}</div>
+      <div class="ci-info">
+        <div class="ci-name">${p.name}${p.te ? " / "+p.te : ""} × ${qty} ${p.unit}</div>
+        <div class="ci-price">₹${p.price} each · ₹${p.price*qty}</div>
+        <button class="remove-btn" onclick="changeQty(${p.id},-${qty})">Remove</button>
+      </div>
+    </div>`;
+  }).join("");
+
+  const areaOptions = DELIVERY_AREAS.map(a=>`<option value="${a}">${a}</option>`).join("");
+  const slotOptions = DELIVERY_SLOTS.map(s=>`<option value="${s}">${s}</option>`).join("");
+
+  itemsHtml += `
+    <div class="form-block">
+      <span class="eyebrow">Delivery details</span>
+      <label for="custPhone">Phone number</label>
+      <div class="phone-row">
+        <input id="custPhone" type="tel" placeholder="10-digit mobile number" maxlength="10">
+        <button class="check-btn" id="checkBtn" onclick="lookupCustomer()">🔍 Check</button>
+      </div>
+      <div class="cust-status" id="custStatus"></div>
+      <label for="custName">Your name</label>
+      <input id="custName" type="text" placeholder="e.g. Priya Sharma">
+      <label for="custAddress">Delivery address</label>
+      <textarea id="custAddress" placeholder="House no., street, landmark..."></textarea>
+      <label for="custArea">Delivery area</label>
+      <select id="custArea">${areaOptions}</select>
+      <label for="custSlot">Delivery day &amp; slot (Sat/Sun only)</label>
+      <select id="custSlot">${slotOptions}</select>
+      <label for="custNote">Order notes (optional)</label>
+      <textarea id="custNote" placeholder="Gate code, preferred ripeness, anything else..."></textarea>
+    </div>
+  `;
+
+  body.innerHTML = itemsHtml;
+  document.getElementById("totalAmount").textContent = "₹" + cartTotal();
+}
+
+function openCart(){
+  document.getElementById("drawer").classList.add("show");
+  document.getElementById("overlay").classList.add("show");
+  renderDrawer();
+}
+function closeCart(){
+  document.getElementById("drawer").classList.remove("show");
+  document.getElementById("overlay").classList.remove("show");
+}
+
+async function lookupCustomer(){
+  const phone = document.getElementById("custPhone").value.trim();
+  const statusEl = document.getElementById("custStatus");
+  if(phone.length < 10){
+    statusEl.className = "cust-status show new";
+    statusEl.textContent = "Enter your full 10-digit number, then tap Check.";
+    return;
+  }
+  const btn = document.getElementById("checkBtn");
+  btn.disabled = true; btn.textContent = "Checking...";
+  try{
+    const doc = await db.collection("customers").doc(phone).get();
+    if(doc.exists){
+      const c = doc.data();
+      document.getElementById("custName").value = c.name || "";
+      document.getElementById("custAddress").value = c.address || "";
+      if(c.area) document.getElementById("custArea").value = c.area;
+      statusEl.className = "cust-status show found";
+      statusEl.textContent = `Welcome back, ${c.name || "there"}! Your details are filled in below.`;
+    } else {
+      statusEl.className = "cust-status show new";
+      statusEl.textContent = "First time ordering? Add your name and address below — we'll remember them next time.";
+    }
+  } catch(err){
+    console.error(err);
+    statusEl.className = "cust-status show new";
+    statusEl.textContent = "Couldn't check saved details right now, but you can still fill the form and order.";
+  }
+  btn.disabled = false; btn.textContent = "🔍 Check";
+}
+
+async function sendToWhatsApp(){
+  const entries = Object.entries(cart);
+  if(entries.length === 0) return;
+
+  const name = document.getElementById("custName").value.trim();
+  const phone = document.getElementById("custPhone").value.trim();
+  const address = document.getElementById("custAddress").value.trim();
+  const area = document.getElementById("custArea").value;
+  const slot = document.getElementById("custSlot").value;
+  const note = document.getElementById("custNote").value.trim();
+
+  if(!name || phone.length < 10 || !address){
+    alert("Please enter your name, a 10-digit phone number, and your delivery address before ordering.");
+    return;
+  }
+
+  const waBtn = document.getElementById("waBtn");
+  waBtn.disabled = true; waBtn.textContent = "Saving your order...";
+
+  const items = entries.map(([id,qty])=>{
+    const p = PRODUCTS.find(x=>x.id==id);
+    return { id:p.id, name:p.name, te:p.te||"", qty, unit:p.unit, price:p.price, lineTotal:p.price*qty };
+  });
+  const total = cartTotal();
+
+  try{
+    // Save/update the customer profile, keyed by phone number
+    await db.collection("customers").doc(phone).set({
+      name, phone, address, area,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge:true });
+
+    // Save the order for the admin dashboard
+    await db.collection("orders").add({
+      name, phone, address, area, slot, note, items, total,
+      status:"New",
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  } catch(err){
+    console.error(err);
+    alert("Couldn't save your order to our system, but you can still send it on WhatsApp — please double check with us there.");
+  }
+
+  let msg = "Hi Weekend Veggies! I'd like to place an order for this weekend:\n\n";
+  items.forEach(p=>{
+    msg += `• ${p.name}${p.te ? " / "+p.te : ""} — ${p.qty} ${p.unit} (₹${p.lineTotal})\n`;
+  });
+  msg += `\nTotal: ₹${total}\n\n`;
+  msg += `Name: ${name}\nPhone: ${phone}\nAddress: ${address}\nArea: ${area}\nSlot: ${slot}\n`;
+  if(note) msg += `Note: ${note}\n`;
+  msg += "\nPlease confirm availability. Thank you!";
+
+  const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`;
+  window.open(url, "_blank");
+
+  waBtn.disabled = false; waBtn.textContent = "✅ Send order on WhatsApp";
+}
+
+renderChips();
+renderGrid();
+renderDrawer();
+</script>
+
+</body>
+</html>
