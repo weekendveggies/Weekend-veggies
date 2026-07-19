@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Weekend Veggies — Pre-Register Now</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --paper: #FBF6EC;
+    --paper-dim: #F3EBDA;
+    --ink: #143B22;
+    --ink-soft: #52684F;
+    --green: #5FA82A;
+    --green-dark: #1F5C2E;
+    --tomato: #C1442D;
+    --line: rgba(36,48,31,0.14);
+    --card: #FFFFFF;
+    --shadow: 0 2px 0 rgba(36,48,31,0.06), 0 10px 24px -12px rgba(36,48,31,0.25);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper); color:var(--ink); min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  h1,h2,.display{font-family:Georgia,"Times New Roman",serif; font-weight:700; letter-spacing:-0.01em;}
+  .hero{
+    background:linear-gradient(180deg, var(--green-dark), var(--green));
+    color:var(--paper); padding:40px 20px 46px; text-align:center;
+  }
+  .hero .brand-mark{font-size:44px; margin-bottom:8px;}
+  .hero h1{font-size:clamp(24px,6vw,34px); margin:0 0 8px;}
+  .hero p{max-width:420px; margin:0 auto; color:#DCE6D3; font-size:14.5px; line-height:1.55;}
+  .wrap{max-width:480px; margin:-20px auto 60px; padding:0 20px;}
+  .form-card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:22px 20px; box-shadow:var(--shadow);
+  }
+  .eyebrow{font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:var(--ink-soft); font-weight:700;}
+  label{display:block; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-soft); margin:14px 0 6px;}
+  input, select, textarea{
+    width:100%; padding:11px 12px; border:1.5px solid var(--line); border-radius:9px;
+    font-size:14px; font-family:inherit; background:#fff; color:var(--ink);
+  }
+  textarea{resize:vertical; min-height:60px;}
+  .loc-btn{
+    margin-top:8px; width:100%; background:var(--paper-dim); color:var(--ink); border:1.5px solid var(--line);
+    padding:10px; border-radius:9px; font-weight:700; font-size:13px; cursor:pointer;
+  }
+  .status-msg{font-size:12.5px; border-radius:8px; padding:8px 10px; margin-top:10px; display:none;}
+  .status-msg.show{display:block;}
+  .status-msg.ok{background:#E8F3DE; color:var(--green-dark);}
+  .status-msg.err{background:#FDEDEA; color:var(--tomato);}
+  .submit-btn{
+    width:100%; margin-top:18px; background:var(--green); color:#fff; border:none;
+    padding:13px; border-radius:10px; font-weight:700; font-size:15px; cursor:pointer;
+  }
+  .submit-btn:disabled{background:#c9d6ce; cursor:not-allowed;}
+  .success-card{display:none; text-align:center; padding:20px 4px;}
+  .success-card.show{display:block;}
+  .success-card .big-icon{font-size:44px; margin-bottom:8px;}
+  .success-card h2{font-size:20px; margin:0 0 8px;}
+  .success-card p{font-size:13.5px; color:var(--ink-soft); line-height:1.5; margin:0 0 16px;}
+  .wa-link{
+    display:inline-block; background:#25D366; color:#0b2b16; text-decoration:none;
+    padding:11px 18px; border-radius:9px; font-weight:700; font-size:14px;
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <img src="logo.png" alt="Weekend Veggies logo" style="width:88px; height:88px; border-radius:50%; object-fit:cover; box-shadow:0 4px 14px rgba(0,0,0,0.25); margin-bottom:6px;">
+  <h1 class="display">Weekend Veggies is launching soon!</h1>
+  <p>Pre-register now so your details are ready the moment we open for orders. We'll take orders Wednesday–Friday and deliver fresh baskets every Saturday & Sunday.</p>
+</div>
+
+<div class="wrap">
+  <div class="form-card" id="formCard">
+    <span class="eyebrow">Reserve your spot</span>
+    <label for="regName">Your name</label>
+    <input id="regName" placeholder="Enter your name">
+
+    <label for="regPhone">Phone number</label>
+    <input id="regPhone" type="tel" placeholder="10-digit mobile number" maxlength="10">
+
+    <label for="regAddress">Delivery address</label>
+    <textarea id="regAddress" placeholder="House no., street, landmark..."></textarea>
+
+    <button type="button" class="loc-btn" onclick="useMyLocation()">📍 Share my location (helps delivery)</button>
+    <div class="status-msg" id="locStatus"></div>
+
+    <button class="submit-btn" id="submitBtn" onclick="submitRegistration()">Pre-register me</button>
+    <div class="status-msg" id="formStatus"></div>
+  </div>
+
+  <div class="success-card" id="successCard">
+    <div class="big-icon">🎉</div>
+    <h2>You're on the list!</h2>
+    <p>We've saved your details. You'll be all set to order the moment we launch — just tap below to say hi on WhatsApp so you're first to know.</p>
+    <a class="wa-link" id="waConfirmLink" href="#" target="_blank">💬 Confirm on WhatsApp</a>
+  </div>
+</div>
+
+<script>
+/* ================= CONFIG — must match your main site ================= */
+const WHATSAPP_NUMBER = "919393453977"; // your business WhatsApp number
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAeeG6BEUCugDNOkqsxe34sH1PituGN65o",
+  authDomain: "weekend-veggies.firebaseapp.com",
+  projectId: "weekend-veggies",
+  storageBucket: "weekend-veggies.firebasestorage.app",
+  messagingSenderId: "114138191278",
+  appId: "1:114138191278:web:972aef04f98f8bdb4da43f"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+/* ========================================================================== */
+
+let capturedLocation = null;
+
+function useMyLocation(){
+  const statusEl = document.getElementById("locStatus");
+  if(!navigator.geolocation){
+    statusEl.className = "status-msg show err";
+    statusEl.textContent = "Location isn't supported on this device — you can still register without it.";
+    return;
+  }
+  statusEl.className = "status-msg show ok";
+  statusEl.textContent = "Getting your precise location...";
+  navigator.geolocation.getCurrentPosition(
+    pos=>{
+      capturedLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      const acc = Math.round(pos.coords.accuracy);
+      statusEl.textContent = acc > 100
+        ? `📍 Location captured (~${acc}m accuracy). For better precision, try again on your phone with GPS on.`
+        : `📍 Location captured (accurate to ~${acc}m).`;
+    },
+    ()=>{
+      statusEl.className = "status-msg show err";
+      statusEl.textContent = "Couldn't get your location — you can still register without it.";
+    },
+    { enableHighAccuracy:true, timeout:15000, maximumAge:0 }
+  );
+}
+
+async function submitRegistration(){
+  const name = document.getElementById("regName").value.trim();
+  const phone = document.getElementById("regPhone").value.trim();
+  const address = document.getElementById("regAddress").value.trim();
+  const formStatus = document.getElementById("formStatus");
+  const submitBtn = document.getElementById("submitBtn");
+
+  if(!name || phone.length < 10 || !address){
+    formStatus.className = "status-msg show err";
+    formStatus.textContent = "Please fill in your name, a 10-digit phone number, and your address.";
+    return;
+  }
+
+  submitBtn.disabled = true; submitBtn.textContent = "Saving...";
+
+  const data = {
+    name, phone, address,
+    preRegistered: true,
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+  if(capturedLocation){
+    data.lat = capturedLocation.lat;
+    data.lng = capturedLocation.lng;
+  }
+
+  try{
+    await db.collection("customers").doc(phone).set(data, { merge:true });
+
+    const waMsg = `Hi Weekend Veggies! I've pre-registered ahead of launch.\n\nName: ${name}\nPhone: ${phone}\nAddress: ${address}\n\nLooking forward to ordering once you open! 🥬`;
+    document.getElementById("waConfirmLink").href = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(waMsg)}`;
+
+    document.getElementById("formCard").style.display = "none";
+    document.getElementById("successCard").classList.add("show");
+  } catch(err){
+    console.error(err);
+    formStatus.className = "status-msg show err";
+    formStatus.textContent = "Something went wrong saving your details — please try again.";
+    submitBtn.disabled = false; submitBtn.textContent = "Pre-register me";
+  }
+}
+</script>
+</body>
+</html>
