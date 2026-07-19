@@ -202,6 +202,7 @@
 <!-- ===== Login screen ===== -->
 <div class="login-wrap" id="loginWrap">
   <div class="login-card">
+    <img src="logo.png" alt="Weekend Veggies logo" style="width:64px; height:64px; border-radius:50%; object-fit:cover; margin-bottom:10px; box-shadow:0 2px 6px rgba(0,0,0,0.2);">
     <h1 class="display">Weekend Veggies</h1>
     <p>Staff login — admin dashboard</p>
     <label for="loginEmail">Email</label>
@@ -216,7 +217,10 @@
 <!-- ===== Dashboard (hidden until logged in) ===== -->
 <div id="dashboard" style="display:none;">
   <div class="topbar">
-    <div class="display">Weekend Veggies · Admin</div>
+    <div style="display:flex; align-items:center; gap:10px;">
+      <img src="logo.png" alt="Weekend Veggies logo" style="width:32px; height:32px; border-radius:50%; object-fit:cover;">
+      <div class="display">Weekend Veggies · Admin</div>
+    </div>
     <button class="logout-btn" onclick="doLogout()">Log out</button>
   </div>
 
