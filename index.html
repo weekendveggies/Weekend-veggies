@@ -180,7 +180,7 @@
     width:28px;height:30px; border:none; background:var(--paper-dim);
     font-size:16px; cursor:pointer; color:var(--ink);
   }
-  .stepper span{width:26px; text-align:center; font-weight:700; font-size:13.5px;}
+  .stepper span{min-width:44px; text-align:center; font-weight:700; font-size:12.5px; padding:0 4px; white-space:nowrap;}
   .add-btn{
     background:var(--green); color:#fff; border:none;
     border-radius:9px; padding:7px 13px; font-weight:700;
@@ -538,7 +538,7 @@ function renderGrid(){
       <div class="qty-row">
         <div class="stepper">
           <button onclick="changeQty('${p.id}',-1)">−</button>
-          <span>${qty}</span>
+          <span>${qty > 0 ? `${qty} ${p.unit}` : '0'}</span>
           <button onclick="changeQty('${p.id}',1)">+</button>
         </div>
         <button class="add-btn" onclick="changeQty('${p.id}',1)">${qty>0?'Added':'Add'}</button>
