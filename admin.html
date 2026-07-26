@@ -274,6 +274,7 @@
     <div class="panel-section" id="productsPanel">
       <div class="products-toolbar">
         <button class="btn btn-outline" id="seedBtn" onclick="seedProducts()">🌱 Load starter list (one-time)</button>
+        <button class="btn btn-outline" id="addBatchBtn" onclick="addNewVeggiesBatch()">🆕 Add the 23 new vegetables (one-time)</button>
         <button class="btn btn-primary" onclick="toggleAddForm()">➕ Add vegetable</button>
       </div>
       <div class="add-product-card" id="addProductCard">
@@ -350,6 +351,53 @@ const CATEGORY_NAMES = {
   leafy:"Leafy Greens", root:"Root Veg", gourd:"Gourds & Beans",
   exotic:"Exotic", salad:"Salad & Kitchen"
 };
+
+// One-time batch of just the NEW vegetables — separate from STARTER_PRODUCTS so it can be
+// added on top of an existing catalog without duplicating what's already there.
+const NEW_VEGGIES_BATCH = [
+  { name:"Lady's Finger", te:"బెండకాయ", icon:"🫛", cat:"gourd", price:40, unit:"kg" },
+  { name:"Cabbage", te:"క్యాబేజీ", icon:"🥬", cat:"leafy", price:25, unit:"kg" },
+  { name:"Beetroot", te:"బీట్‌రూట్", icon:"🟣", cat:"root", price:35, unit:"kg" },
+  { name:"Ridge Gourd", te:"బీరకాయ", icon:"🥒", cat:"gourd", price:30, unit:"kg" },
+  { name:"Snake Gourd", te:"పొట్లకాయ", icon:"🥒", cat:"gourd", price:28, unit:"kg" },
+  { name:"Bitter Gourd", te:"కాకరకాయ", icon:"🥒", cat:"gourd", price:35, unit:"kg" },
+  { name:"Ivy Gourd", te:"దొండకాయ", icon:"🫒", cat:"gourd", price:40, unit:"kg" },
+  { name:"Drumstick", te:"మునగకాయ", icon:"🌿", cat:"exotic", price:20, unit:"pc" },
+  { name:"Raw Banana", te:"అరటికాయ", icon:"🍌", cat:"exotic", price:30, unit:"pc" },
+  { name:"Cluster Beans", te:"గోరుచిక్కుడు", icon:"🫛", cat:"gourd", price:45, unit:"kg" },
+  { name:"French Beans", te:"బీన్స్", icon:"🫛", cat:"gourd", price:45, unit:"kg" },
+  { name:"Sweet Potato", te:"చిలగడదుంప", icon:"🍠", cat:"root", price:40, unit:"kg" },
+  { name:"Taro Root", te:"చామదుంప", icon:"🥔", cat:"root", price:45, unit:"kg" },
+  { name:"Amaranth Green", te:"తోటకూర", icon:"🥬", cat:"leafy", price:15, unit:"bunch" },
+  { name:"Sorrel Leaves", te:"గోంగూర", icon:"🌿", cat:"leafy", price:20, unit:"bunch" },
+  { name:"Curry Leaves", te:"కరివేపాకు", icon:"🌿", cat:"leafy", price:5, unit:"bunch" },
+  { name:"Mint Leaves", te:"పుదీనా", icon:"🌿", cat:"leafy", price:10, unit:"bunch" },
+  { name:"Malabar Spinach", te:"బచ్చలికూర", icon:"🥬", cat:"leafy", price:20, unit:"bunch" },
+  { name:"Spring Onion", te:"ఉల్లికాడలు", icon:"🌱", cat:"leafy", price:15, unit:"bunch" },
+  { name:"Colocasia Leaves", te:"చామ ఆకులు", icon:"🥬", cat:"leafy", price:15, unit:"bunch" },
+  { name:"Moringa Leaves", te:"మునగాకు", icon:"🌿", cat:"leafy", price:15, unit:"bunch" },
+  { name:"Roselle Leaves", te:"పులిచింతాకు", icon:"🌿", cat:"leafy", price:20, unit:"bunch" },
+  { name:"Lettuce", te:"లెట్యూస్", icon:"🥬", cat:"salad", price:40, unit:"pc" },
+];
+
+async function addNewVeggiesBatch(){
+  if(!confirm(`This adds ${NEW_VEGGIES_BATCH.length} new vegetables on top of your existing catalog. Only click this once — clicking twice will add them twice. Continue?`)) return;
+  const btn = document.getElementById("addBatchBtn");
+  btn.disabled = true; btn.textContent = "Adding...";
+  try{
+    const batch = db.batch();
+    NEW_VEGGIES_BATCH.forEach(p=>{
+      const ref = db.collection("products").doc();
+      batch.set(ref, { ...p, inStock:true });
+    });
+    await batch.commit();
+    alert(`Added ${NEW_VEGGIES_BATCH.length} new vegetables! Check the list below.`);
+  } catch(err){
+    alert("Couldn't add the new vegetables — please try again.");
+    console.error(err);
+  }
+  btn.disabled = false; btn.textContent = "🆕 Add the 23 new vegetables (one-time)";
+}
 
 // One-time starter list — only used if you click "Load starter list" with an empty catalog
 const STARTER_PRODUCTS = [
