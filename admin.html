@@ -273,8 +273,7 @@
     </div>
     <div class="panel-section" id="productsPanel">
       <div class="products-toolbar">
-        <button class="btn btn-outline" id="seedBtn" onclick="seedProducts()">🌱 Load starter list (one-time)</button>
-        <button class="btn btn-outline" id="addBatchBtn" onclick="addNewVeggiesBatch()">🆕 Add the 23 new vegetables (one-time)</button>
+        <button class="btn btn-outline" id="seedBtn" onclick="seedProducts()">🌱 Load starter list (adds any missing items)</button>
         <button class="btn btn-primary" onclick="toggleAddForm()">➕ Add vegetable</button>
       </div>
       <div class="add-product-card" id="addProductCard">
@@ -351,53 +350,6 @@ const CATEGORY_NAMES = {
   leafy:"Leafy Greens", root:"Root Veg", gourd:"Gourds & Beans",
   exotic:"Exotic", salad:"Salad & Kitchen"
 };
-
-// One-time batch of just the NEW vegetables — separate from STARTER_PRODUCTS so it can be
-// added on top of an existing catalog without duplicating what's already there.
-const NEW_VEGGIES_BATCH = [
-  { name:"Lady's Finger", te:"బెండకాయ", icon:"🫛", cat:"gourd", price:40, unit:"kg" },
-  { name:"Cabbage", te:"క్యాబేజీ", icon:"🥬", cat:"leafy", price:25, unit:"kg" },
-  { name:"Beetroot", te:"బీట్‌రూట్", icon:"🟣", cat:"root", price:35, unit:"kg" },
-  { name:"Ridge Gourd", te:"బీరకాయ", icon:"🥒", cat:"gourd", price:30, unit:"kg" },
-  { name:"Snake Gourd", te:"పొట్లకాయ", icon:"🥒", cat:"gourd", price:28, unit:"kg" },
-  { name:"Bitter Gourd", te:"కాకరకాయ", icon:"🥒", cat:"gourd", price:35, unit:"kg" },
-  { name:"Ivy Gourd", te:"దొండకాయ", icon:"🫒", cat:"gourd", price:40, unit:"kg" },
-  { name:"Drumstick", te:"మునగకాయ", icon:"🌿", cat:"exotic", price:20, unit:"pc" },
-  { name:"Raw Banana", te:"అరటికాయ", icon:"🍌", cat:"exotic", price:30, unit:"pc" },
-  { name:"Cluster Beans", te:"గోరుచిక్కుడు", icon:"🫛", cat:"gourd", price:45, unit:"kg" },
-  { name:"French Beans", te:"బీన్స్", icon:"🫛", cat:"gourd", price:45, unit:"kg" },
-  { name:"Sweet Potato", te:"చిలగడదుంప", icon:"🍠", cat:"root", price:40, unit:"kg" },
-  { name:"Taro Root", te:"చామదుంప", icon:"🥔", cat:"root", price:45, unit:"kg" },
-  { name:"Amaranth Green", te:"తోటకూర", icon:"🥬", cat:"leafy", price:15, unit:"bunch" },
-  { name:"Sorrel Leaves", te:"గోంగూర", icon:"🌿", cat:"leafy", price:20, unit:"bunch" },
-  { name:"Curry Leaves", te:"కరివేపాకు", icon:"🌿", cat:"leafy", price:5, unit:"bunch" },
-  { name:"Mint Leaves", te:"పుదీనా", icon:"🌿", cat:"leafy", price:10, unit:"bunch" },
-  { name:"Malabar Spinach", te:"బచ్చలికూర", icon:"🥬", cat:"leafy", price:20, unit:"bunch" },
-  { name:"Spring Onion", te:"ఉల్లికాడలు", icon:"🌱", cat:"leafy", price:15, unit:"bunch" },
-  { name:"Colocasia Leaves", te:"చామ ఆకులు", icon:"🥬", cat:"leafy", price:15, unit:"bunch" },
-  { name:"Moringa Leaves", te:"మునగాకు", icon:"🌿", cat:"leafy", price:15, unit:"bunch" },
-  { name:"Roselle Leaves", te:"పులిచింతాకు", icon:"🌿", cat:"leafy", price:20, unit:"bunch" },
-  { name:"Lettuce", te:"లెట్యూస్", icon:"🥬", cat:"salad", price:40, unit:"pc" },
-];
-
-async function addNewVeggiesBatch(){
-  if(!confirm(`This adds ${NEW_VEGGIES_BATCH.length} new vegetables on top of your existing catalog. Only click this once — clicking twice will add them twice. Continue?`)) return;
-  const btn = document.getElementById("addBatchBtn");
-  btn.disabled = true; btn.textContent = "Adding...";
-  try{
-    const batch = db.batch();
-    NEW_VEGGIES_BATCH.forEach(p=>{
-      const ref = db.collection("products").doc();
-      batch.set(ref, { ...p, inStock:true });
-    });
-    await batch.commit();
-    alert(`Added ${NEW_VEGGIES_BATCH.length} new vegetables! Check the list below.`);
-  } catch(err){
-    alert("Couldn't add the new vegetables — please try again.");
-    console.error(err);
-  }
-  btn.disabled = false; btn.textContent = "🆕 Add the 23 new vegetables (one-time)";
-}
 
 // One-time starter list — only used if you click "Load starter list" with an empty catalog
 const STARTER_PRODUCTS = [
@@ -690,6 +642,15 @@ async function addProduct(){
     alert("Please enter at least a name and a price.");
     return;
   }
+
+  // Prevent adding a vegetable that already exists in the catalog (case-insensitive match)
+  const existingSnap = await db.collection("products").get();
+  const nameExists = existingSnap.docs.some(d => (d.data().name || "").trim().toLowerCase() === name.toLowerCase());
+  if(nameExists){
+    alert(`"${name}" is already in your catalog. Find it in the list below to edit its price/unit/photo instead of adding it again.`);
+    return;
+  }
+
   const data = { name, te, icon, cat, price, unit, inStock: true };
   if(photo) data.photo = photo;
 
@@ -716,26 +677,35 @@ function updateProductField(productId, field, value){
 }
 
 async function seedProducts(){
-  const existing = await db.collection("products").limit(1).get();
-  if(!existing.empty){
-    alert("Your catalog already has vegetables in it, so the starter list won't be added again. Use 'Add vegetable' for new items.");
-    return;
-  }
-  if(!confirm(`This will add ${STARTER_PRODUCTS.length} starter vegetables to your catalog. Continue?`)) return;
   const btn = document.getElementById("seedBtn");
-  btn.disabled = true; btn.textContent = "Loading...";
+  btn.disabled = true; btn.textContent = "Checking catalog...";
   try{
+    const existingSnap = await db.collection("products").get();
+    const existingNames = new Set(existingSnap.docs.map(d => (d.data().name || "").trim().toLowerCase()));
+    const toAdd = STARTER_PRODUCTS.filter(p => !existingNames.has(p.name.trim().toLowerCase()));
+
+    if(toAdd.length === 0){
+      alert("Every vegetable in the starter list is already in your catalog — nothing new to add.");
+      btn.disabled = false; btn.textContent = "🌱 Load starter list (adds any missing items)";
+      return;
+    }
+    if(!confirm(`This will add ${toAdd.length} vegetable(s) not yet in your catalog (skipping ${STARTER_PRODUCTS.length - toAdd.length} already there). Continue?`)) {
+      btn.disabled = false; btn.textContent = "🌱 Load starter list (adds any missing items)";
+      return;
+    }
+    btn.textContent = "Adding...";
     const batch = db.batch();
-    STARTER_PRODUCTS.forEach(p=>{
+    toAdd.forEach(p=>{
       const ref = db.collection("products").doc();
-      batch.set(ref, p);
+      batch.set(ref, { ...p, inStock:true });
     });
     await batch.commit();
+    alert(`Added ${toAdd.length} new vegetable(s) to your catalog.`);
   } catch(err){
     alert("Couldn't load the starter list — please try again.");
     console.error(err);
   }
-  btn.disabled = false; btn.textContent = "🌱 Load starter list (one-time)";
+  btn.disabled = false; btn.textContent = "🌱 Load starter list (adds any missing items)";
 }
 
 const STATUS_MESSAGES = {
