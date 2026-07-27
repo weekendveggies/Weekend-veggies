@@ -274,6 +274,7 @@
     <div class="panel-section" id="productsPanel">
       <div class="products-toolbar">
         <button class="btn btn-outline" id="seedBtn" onclick="seedProducts()">🌱 Load starter list (adds any missing items)</button>
+        <button class="btn btn-outline" id="dedupeBtn" onclick="removeDuplicateProducts()">🧹 Remove duplicate vegetables</button>
         <button class="btn btn-primary" onclick="toggleAddForm()">➕ Add vegetable</button>
       </div>
       <div class="add-product-card" id="addProductCard">
@@ -674,6 +675,46 @@ function updateProductField(productId, field, value){
     alert("Couldn't save that change — check your connection and try again.");
     console.error(err);
   });
+}
+
+async function removeDuplicateProducts(){
+  const btn = document.getElementById("dedupeBtn");
+  btn.disabled = true; btn.textContent = "Scanning...";
+  try{
+    const snap = await db.collection("products").get();
+    const seen = new Map(); // lowercased name -> the doc id we're keeping
+    const toDelete = [];
+    snap.docs.forEach(doc=>{
+      const name = (doc.data().name || "").trim().toLowerCase();
+      if(!name) return;
+      if(seen.has(name)){
+        toDelete.push({ id: doc.id, name: doc.data().name });
+      } else {
+        seen.set(name, doc.id);
+      }
+    });
+
+    if(toDelete.length === 0){
+      alert("No duplicates found — your catalog is already clean!");
+      btn.disabled = false; btn.textContent = "🧹 Remove duplicate vegetables";
+      return;
+    }
+
+    const names = toDelete.map(d=>d.name).join(", ");
+    if(!confirm(`Found ${toDelete.length} duplicate item(s): ${names}. This keeps one copy of each and deletes the extras. Continue?`)){
+      btn.disabled = false; btn.textContent = "🧹 Remove duplicate vegetables";
+      return;
+    }
+
+    const batch = db.batch();
+    toDelete.forEach(d => batch.delete(db.collection("products").doc(d.id)));
+    await batch.commit();
+    alert(`Removed ${toDelete.length} duplicate item(s).`);
+  } catch(err){
+    alert("Couldn't clean up duplicates — please try again.");
+    console.error(err);
+  }
+  btn.disabled = false; btn.textContent = "🧹 Remove duplicate vegetables";
 }
 
 async function seedProducts(){
