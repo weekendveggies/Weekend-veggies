@@ -610,7 +610,8 @@ function renderDrawer(){
       <input id="custName" type="text" placeholder="e.g. Priya Sharma">
       <label for="custAddress">Delivery address</label>
       <textarea id="custAddress" placeholder="House no., street, landmark..."></textarea>
-      <button type="button" class="check-btn" style="margin-top:8px;" onclick="useMyLocation()">📍 Share my location (helps delivery)</button>
+      <label style="margin:14px 0 6px;">Share your location <span style="color:var(--tomato);">*required</span></label>
+      <button type="button" class="check-btn" style="width:100%; height:auto; padding:10px;" onclick="useMyLocation()">📍 Share my location (required to place order)</button>
       <div class="cust-status" id="locStatus"></div>
       <label for="custArea">Delivery area</label>
       <select id="custArea">${areaOptions}</select>
