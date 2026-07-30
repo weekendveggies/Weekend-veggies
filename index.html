@@ -685,6 +685,10 @@ async function sendToWhatsApp(){
     alert("Please enter your name, a 10-digit phone number, and your delivery address before ordering.");
     return;
   }
+  if(!capturedLocation){
+    alert("Please tap '📍 Share my location' and allow location access before placing your order — this is required so we can find your address accurately.");
+    return;
+  }
 
   const waBtn = document.getElementById("waBtn");
   if(waBtn.disabled) return; // guard against double-tap creating duplicate orders
