@@ -175,6 +175,21 @@
   }
   .area-group-header:first-child{margin-top:0;}
 
+  /* ---- Material summary ---- */
+  .material-card{
+    background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:16px 18px; margin-bottom:18px; box-shadow:var(--shadow);
+  }
+  .material-card h3{margin:0 0 4px; font-size:16px;}
+  .material-card .sub{font-size:12.5px; color:var(--ink-soft); margin-bottom:12px;}
+  .material-row{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:8px 0; border-bottom:1px dashed var(--line); font-size:14px;
+  }
+  .material-row:last-child{border-bottom:none;}
+  .material-row .m-name{font-weight:600;}
+  .material-row .m-qty{font-weight:700; color:var(--green-dark); white-space:nowrap;}
+
   /* ---- Print view (parcel slips) ---- */
   #printArea{display:none;}
   .parcel-slip{
@@ -253,9 +268,11 @@
   <div class="panel">
     <div class="panel-section show" id="pendingPanel">
       <div class="products-toolbar">
+        <button class="btn btn-outline" onclick="toggleMaterialSummary()" id="materialToggleBtn">📋 Total material needed</button>
         <button class="btn btn-outline" onclick="exportOrdersCsv()">⬇️ Export all orders (CSV)</button>
         <button class="btn btn-outline" onclick="printPendingOrders()">🖨️ Print all pending orders</button>
       </div>
+      <div id="materialSummaryArea" style="display:none;"></div>
       <div id="pendingList"></div>
     </div>
     <div class="panel-section" id="historyPanel">
@@ -442,6 +459,56 @@ function orderMatchesSearch(o, q){
       || (o.orderNumber||"").toLowerCase().includes(q);
 }
 
+let materialSummaryVisible = false;
+
+function toggleMaterialSummary(){
+  materialSummaryVisible = !materialSummaryVisible;
+  document.getElementById("materialToggleBtn").textContent = materialSummaryVisible
+    ? "📋 Hide total material" : "📋 Total material needed";
+  renderMaterialSummary();
+}
+
+function renderMaterialSummary(){
+  const area = document.getElementById("materialSummaryArea");
+  if(!materialSummaryVisible){
+    area.style.display = "none";
+    return;
+  }
+  area.style.display = "block";
+
+  const pendingDocs = allOrderDocs.filter(d => (d.data().status || "New") !== "Delivered");
+  const totals = {}; // key: "name|unit" -> { name, te, unit, qty }
+
+  pendingDocs.forEach(d=>{
+    const o = d.data();
+    (o.items || []).forEach(it=>{
+      const key = (it.name || "") + "|" + (it.unit || "");
+      if(!totals[key]) totals[key] = { name: it.name, te: it.te || "", unit: it.unit || "", qty: 0 };
+      totals[key].qty += Number(it.qty) || 0;
+    });
+  });
+
+  const list = Object.values(totals).sort((a,b) => a.name.localeCompare(b.name));
+
+  if(list.length === 0){
+    area.innerHTML = `<div class="material-card"><h3>📋 Total material needed</h3><div class="sub">No pending orders right now — nothing to total up.</div></div>`;
+    return;
+  }
+
+  area.innerHTML = `
+    <div class="material-card">
+      <h3>📋 Total material needed</h3>
+      <div class="sub">Across ${pendingDocs.length} pending order${pendingDocs.length===1?"":"s"} (updates live as orders come in or get delivered)</div>
+      ${list.map(it => `
+        <div class="material-row">
+          <span class="m-name">${it.name}${it.te ? " / "+it.te : ""}</span>
+          <span class="m-qty">${it.qty} ${it.unit}</span>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
 function renderOrderTabs(){
   const q = (document.getElementById("orderSearchInput").value || "").trim();
   const pendingList = document.getElementById("pendingList");
@@ -472,6 +539,7 @@ function renderOrderTabs(){
     : `<div class="empty-state">${q ? "No matching orders in history." : "No delivered orders yet."}</div>`;
 
   updateStats();
+  renderMaterialSummary();
 }
 
 function updateStats(){
