@@ -87,7 +87,13 @@
   .order-meta{font-size:12.5px; color:var(--ink-soft); margin-top:2px;}
   .order-total{font-size:19px; font-weight:700; font-family:Georgia,serif; white-space:nowrap;}
   .order-items{margin:12px 0; padding:12px 0; border-top:1px dashed var(--line); border-bottom:1px dashed var(--line);}
-  .order-item-row{display:flex; justify-content:space-between; font-size:13.5px; padding:3px 0;}
+  .order-item-row{display:flex; justify-content:space-between; align-items:center; font-size:13.5px; padding:3px 0; gap:8px;}
+  .item-avail-toggle{
+    display:flex; align-items:center; gap:5px; font-size:11px; font-weight:600;
+    color:var(--ink-soft); cursor:pointer; white-space:nowrap;
+  }
+  .item-avail-toggle input{cursor:pointer;}
+  .item-price-unavailable{text-decoration:line-through; color:var(--tomato); font-weight:600;}
   .order-footer{display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;}
   .badge{
     display:inline-block; padding:4px 10px; border-radius:999px; font-size:11.5px; font-weight:700;
@@ -784,6 +790,7 @@ function renderMaterialSummary(){
   pendingDocs.forEach(d=>{
     const o = d.data();
     (o.items || []).forEach(it=>{
+      if(it.unavailable === true) return; // skip items marked unavailable — no need to source them
       const key = (it.name || "") + "|" + (it.unit || "");
       if(!totals[key]) totals[key] = { name: it.name, te: it.te || "", unit: it.unit || "", qty: 0 };
       totals[key].qty += Number(it.qty) || 0;
@@ -907,9 +914,20 @@ function orderCardHtml(doc){
   const when = o.createdAt && o.createdAt.toDate ? o.createdAt.toDate().toLocaleString() : "Just now";
   const status = o.status || "New";
   const orderNo = o.orderNumber || doc.id;
-  const itemsHtml = (o.items||[]).map(it=>`
-    <div class="order-item-row"><span>${it.name}${it.te ? " / "+it.te : ""} × ${it.qty} ${it.unit}</span><span>₹${it.lineTotal}</span></div>
-  `).join("");
+  const itemsHtml = (o.items||[]).map((it, idx)=>{
+    const unavailable = it.unavailable === true;
+    return `
+    <div class="order-item-row">
+      <span style="${unavailable ? 'opacity:0.55;' : ''}">${it.name}${it.te ? " / "+it.te : ""} × ${it.qty} ${it.unit}</span>
+      <span style="display:flex; align-items:center; gap:10px;">
+        <label class="item-avail-toggle">
+          <input type="checkbox" ${unavailable ? "checked" : ""} onchange="toggleItemAvailability('${doc.id}', ${idx})">
+          Unavailable
+        </label>
+        <span class="${unavailable ? 'item-price-unavailable' : ''}">₹${unavailable ? 0 : it.lineTotal}</span>
+      </span>
+    </div>`;
+  }).join("");
   const mapLink = (o.lat && o.lng) ? `<a href="https://maps.google.com/?q=${o.lat},${o.lng}" target="_blank" style="color:var(--green-dark); font-weight:600;">📍 View location</a>` : "";
   return `
   <div class="order-card">
@@ -990,6 +1008,13 @@ function attachListeners(){
       statusText.style.color = "var(--green-dark)";
       statusBtn.textContent = "🚫 Close ordering";
     }
+    statusBtn.disabled = false;
+  }, err=>{
+    console.error("Settings load error:", err);
+    document.getElementById("orderStatusText").textContent = "⚠️ Couldn't load (check Firestore rules for 'settings')";
+    document.getElementById("orderStatusText").style.color = "var(--tomato)";
+    document.getElementById("orderStatusBtn").textContent = "Retry";
+    document.getElementById("orderStatusBtn").disabled = false;
   });
 
   ordersUnsub = db.collection("orders").orderBy("createdAt","desc").onSnapshot(snap=>{
@@ -1184,6 +1209,22 @@ const STATUS_MESSAGES = {
   "Cancelled": (o) => `Hi ${o.name}, your Weekend Veggies order ${o.orderNumber || ""} has been cancelled. If this wasn't expected or you have questions, please reply here and we'll sort it out. Sorry for the inconvenience.`
 };
 
+async function toggleItemAvailability(orderId, itemIndex){
+  const orderDoc = allOrderDocs.find(d => d.id === orderId);
+  if(!orderDoc) return;
+  const o = orderDoc.data();
+  const items = (o.items || []).map((it, idx) =>
+    idx === itemIndex ? { ...it, unavailable: !it.unavailable } : it
+  );
+  const newTotal = items.reduce((sum, it) => sum + (it.unavailable ? 0 : (it.lineTotal || 0)), 0);
+  try{
+    await db.collection("orders").doc(orderId).update({ items, total: newTotal });
+  } catch(err){
+    alert("Couldn't update that item — check your connection and try again.");
+    console.error(err);
+  }
+}
+
 async function updateStatus(orderId, status){
   try{
     await db.collection("orders").doc(orderId).update({ status });
@@ -1220,9 +1261,14 @@ function printPendingOrders(){
     printArea.innerHTML = pending.map(doc=>{
       const o = doc.data();
       const orderNo = o.orderNumber || doc.id;
-      const itemsHtml = (o.items||[]).map(it=>`
-        <div class="parcel-item-row"><span>${it.name}${it.te ? " / "+it.te : ""} × ${it.qty} ${it.unit}</span><span>₹${it.lineTotal}</span></div>
-      `).join("");
+      const itemsHtml = (o.items||[]).map(it=>{
+        const unavailable = it.unavailable === true;
+        return `
+        <div class="parcel-item-row">
+          <span style="${unavailable ? 'text-decoration:line-through; color:#999;' : ''}">${it.name}${it.te ? " / "+it.te : ""} × ${it.qty} ${it.unit}${unavailable ? " (UNAVAILABLE)" : ""}</span>
+          <span style="${unavailable ? 'text-decoration:line-through; color:#999;' : ''}">₹${unavailable ? 0 : it.lineTotal}</span>
+        </div>`;
+      }).join("");
       return `
       <div class="parcel-slip">
         <h3>${o.name || "—"}</h3>
