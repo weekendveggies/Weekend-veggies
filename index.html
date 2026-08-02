@@ -285,6 +285,10 @@
   }
   .closed-card{max-width:460px;}
   .closed-icon{font-size:52px; margin-bottom:14px;}
+  .closed-highlight{
+    display:inline-block; background:#FFF3DE; color:var(--carrot);
+    font-weight:700; padding:2px 8px; border-radius:6px;
+  }
   .closed-card h1{color:#fff; font-size:clamp(22px,5vw,30px); margin:0 0 14px; line-height:1.2;}
   .closed-card p{color:#DCE6D3; font-size:15px; line-height:1.6; margin:0 0 10px;}
   .closed-brand{margin-top:26px; padding-top:20px; border-top:1px solid rgba(255,255,255,0.25);}
@@ -309,10 +313,10 @@
 
 <div class="closed-screen" id="closedScreen" style="display:none;">
   <div class="closed-card">
-    <div class="closed-icon">🚫</div>
+    <div class="closed-icon">🔒</div>
     <h1>This Week's Orders Are Closed!</h1>
     <p>Thank you for your support. Orders for this week have now been closed.</p>
-    <p>🥬 Fresh vegetable orders will reopen on Wednesday.</p>
+    <p>🥬 Fresh vegetable orders will reopen on <span class="closed-highlight">Wednesday</span>.</p>
     <p>Stay tuned and place your order early to reserve your fresh produce!</p>
     <div class="closed-brand">
       <div class="name">📍 Weekend Veggies</div>
