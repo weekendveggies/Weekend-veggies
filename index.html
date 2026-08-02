@@ -274,6 +274,22 @@
     .hero{padding:30px 16px 36px;}
     .peel{display:none;}
   }
+
+  /* ---------- Closed-for-orders screen ---------- */
+  .closed-screen{
+    min-height:80vh; display:flex; align-items:center; justify-content:center;
+    padding:40px 20px; text-align:center;
+    background:
+      repeating-linear-gradient(115deg, rgba(255,255,255,0.035) 0 2px, transparent 2px 26px),
+      linear-gradient(180deg, var(--green-dark), var(--green));
+  }
+  .closed-card{max-width:460px;}
+  .closed-icon{font-size:52px; margin-bottom:14px;}
+  .closed-card h1{color:#fff; font-size:clamp(22px,5vw,30px); margin:0 0 14px; line-height:1.2;}
+  .closed-card p{color:#DCE6D3; font-size:15px; line-height:1.6; margin:0 0 10px;}
+  .closed-brand{margin-top:26px; padding-top:20px; border-top:1px solid rgba(255,255,255,0.25);}
+  .closed-brand .name{color:#fff; font-weight:700; font-size:16px; font-family:Georgia,serif;}
+  .closed-brand .tag{color:#C7E896; font-size:13px; margin-top:4px;}
 </style>
 </head>
 <body>
@@ -286,10 +302,26 @@
       <div class="brand-tag">Weekly market at your doorstep</div>
     </div>
   </div>
-  <button class="cart-btn" onclick="openCart()">
+  <button class="cart-btn" id="cartBtnTop" onclick="openCart()">
     🧺 Cart <span class="cart-count" id="cartCount">0</span>
   </button>
 </div>
+
+<div class="closed-screen" id="closedScreen" style="display:none;">
+  <div class="closed-card">
+    <div class="closed-icon">🚫</div>
+    <h1>This Week's Orders Are Closed!</h1>
+    <p>Thank you for your support. Orders for this week have now been closed.</p>
+    <p>🥬 Fresh vegetable orders will reopen on Wednesday.</p>
+    <p>Stay tuned and place your order early to reserve your fresh produce!</p>
+    <div class="closed-brand">
+      <div class="name">📍 Weekend Veggies</div>
+      <div class="tag">Fresh from the market to your doorstep.</div>
+    </div>
+  </div>
+</div>
+
+<div id="shopContent">
 
 <div class="hero">
   <span class="peel">🥕</span>
@@ -331,20 +363,22 @@
   </div>
 </div>
 
+</div>
+
 <script>
 /* ================= CONFIG — edit these for your business ================= */
-const WHATSAPP_NUMBER = "919494178554"; // country code + number, no + or spaces
+const WHATSAPP_NUMBER = "919393453977"; // country code + number, no + or spaces
 const ORDER_WINDOW = "Wednesday – Friday"; // when you accept orders
 const DELIVERY_AREAS = [
-  "Zone 1 — ECIL", "Zone 2 — AS Rao Nagar", "Zone 3 — Sainikpuri",
-  "Zone 4 — Kushaiguda", "Zone 5 — Kapra", "Zone 6 — Dammaiguda", "Zone 7 — Other"
+  "Zone 1 — Central", "Zone 2 — North", "Zone 3 — South",
+  "Zone 4 — East", "Zone 5 — West"
 ];
 // Delivery only happens Saturday & Sunday — pick a day + time window
 const DELIVERY_SLOTS = [
-  "Saturday · Morning (10:00–11:00 AM)",
-  "Saturday · Evening (12:00–7:00 PM)",
-  "Sunday · Morning (8:00–11:00 AM)",
-  "Sunday · Evening (12:00–7:00 PM)"
+  "Saturday · Morning (7:00–9:00 AM)",
+  "Saturday · Evening (5:00–7:00 PM)",
+  "Sunday · Morning (7:00–9:00 AM)",
+  "Sunday · Evening (5:00–7:00 PM)"
 ];
 
 // Paste the firebaseConfig object Firebase gave you when you registered your web app:
@@ -751,6 +785,16 @@ async function sendToWhatsApp(){
 renderChips();
 renderGrid();
 renderDrawer();
+
+// Live-check the admin's manual "close ordering" switch
+db.collection("settings").doc("config").onSnapshot(doc=>{
+  const closed = doc.exists && doc.data().ordersClosed === true;
+  document.getElementById("closedScreen").style.display = closed ? "flex" : "none";
+  document.getElementById("shopContent").style.display = closed ? "none" : "block";
+  document.getElementById("cartBtnTop").style.display = closed ? "none" : "flex";
+}, err=>{
+  console.error("Could not check order status:", err);
+});
 
 // Live-sync the vegetable list & prices from Firestore (edited via the admin dashboard)
 db.collection("products").orderBy("name").onSnapshot(snap=>{
