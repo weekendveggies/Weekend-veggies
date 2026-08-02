@@ -265,6 +265,16 @@
     <button class="logout-btn" onclick="doLogout()">Log out</button>
   </div>
 
+  <div class="stats-bar" style="margin-top:14px;">
+    <div class="stat-card" id="orderStatusCard" style="display:flex; align-items:center; justify-content:space-between; flex:1 1 100%;">
+      <div>
+        <div class="stat-label">Ordering status</div>
+        <div class="stat-value" id="orderStatusText" style="font-size:16px;">—</div>
+      </div>
+      <button class="btn btn-outline" id="orderStatusBtn" onclick="toggleOrdering()">Loading...</button>
+    </div>
+  </div>
+
   <div class="stats-bar">
     <div class="stat-card">
       <div class="stat-label">Today's orders</div>
@@ -285,6 +295,7 @@
     <button class="tab-btn" id="tabHistoryBtn" onclick="showTab('history')">🗂 Order History</button>
     <button class="tab-btn" id="tabCustomersBtn" onclick="showTab('customers')">👤 Customers</button>
     <button class="tab-btn" id="tabProductsBtn" onclick="showTab('products')">🥕 Products</button>
+    <button class="tab-btn" id="tabReportsBtn" onclick="showTab('reports')">📊 Reports</button>
   </div>
 
   <div class="search-row">
@@ -376,6 +387,52 @@
       </div>
       <div id="productsList"></div>
     </div>
+    <div class="panel-section" id="reportsPanel">
+      <div class="products-toolbar" style="justify-content:space-between;">
+        <div style="display:flex; gap:8px;">
+          <button class="tab-btn active" id="reportDailyBtn" onclick="setReportType('daily')">Daily</button>
+          <button class="tab-btn" id="reportWeeklyBtn" onclick="setReportType('weekly')">Weekly</button>
+          <button class="tab-btn" id="reportMonthlyBtn" onclick="setReportType('monthly')">Monthly</button>
+        </div>
+        <button class="btn btn-outline" onclick="exportReportCsv()">⬇️ Export this period (CSV)</button>
+      </div>
+
+      <div style="display:flex; align-items:center; justify-content:center; gap:16px; margin:6px 0 20px;">
+        <button class="btn btn-outline" onclick="shiftReport(-1)">← Prev</button>
+        <div id="reportPeriodLabel" style="font-weight:700; font-family:Georgia,serif; font-size:17px; min-width:200px; text-align:center;">—</div>
+        <button class="btn btn-outline" onclick="shiftReport(1)">Next →</button>
+      </div>
+
+      <div class="stats-bar" style="max-width:none; margin:0 0 22px; padding:0;">
+        <div class="stat-card">
+          <div class="stat-label">Total orders</div>
+          <div class="stat-value" id="reportTotalOrders">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Revenue</div>
+          <div class="stat-value" id="reportTotalRevenue">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Delivered</div>
+          <div class="stat-value" id="reportDelivered">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Cancelled</div>
+          <div class="stat-value" id="reportCancelled">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Avg order value</div>
+          <div class="stat-value" id="reportAvgOrder">—</div>
+        </div>
+      </div>
+
+      <h3 style="margin:0 0 12px; font-size:16px;">Top vegetables this period</h3>
+      <table>
+        <thead><tr><th>Vegetable</th><th>Quantity sold</th><th>Revenue</th></tr></thead>
+        <tbody id="reportVegBody"></tbody>
+      </table>
+      <div id="reportVegEmpty"></div>
+    </div>
   </div>
 </div>
 
@@ -395,10 +452,139 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
+let reportType = "daily";
+let reportAnchor = new Date();
+let currentReportDocs = [];
+
+function setReportType(type){
+  reportType = type;
+  reportAnchor = new Date();
+  document.getElementById("reportDailyBtn").classList.toggle("active", type==="daily");
+  document.getElementById("reportWeeklyBtn").classList.toggle("active", type==="weekly");
+  document.getElementById("reportMonthlyBtn").classList.toggle("active", type==="monthly");
+  renderReport();
+}
+
+function shiftReport(delta){
+  const d = new Date(reportAnchor);
+  if(reportType === "daily") d.setDate(d.getDate() + delta);
+  else if(reportType === "weekly") d.setDate(d.getDate() + delta*7);
+  else d.setMonth(d.getMonth() + delta);
+  reportAnchor = d;
+  renderReport();
+}
+
+function getReportRange(){
+  const d = new Date(reportAnchor);
+  let start, end, label;
+  if(reportType === "daily"){
+    start = new Date(d); start.setHours(0,0,0,0);
+    end = new Date(d); end.setHours(23,59,59,999);
+    label = start.toLocaleDateString(undefined,{weekday:"short", year:"numeric", month:"short", day:"numeric"});
+  } else if(reportType === "weekly"){
+    const day = d.getDay();
+    const diffToMonday = (day === 0 ? -6 : 1 - day);
+    start = new Date(d); start.setDate(d.getDate() + diffToMonday); start.setHours(0,0,0,0);
+    end = new Date(start); end.setDate(start.getDate()+6); end.setHours(23,59,59,999);
+    label = `${start.toLocaleDateString(undefined,{month:"short",day:"numeric"})} – ${end.toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"})}`;
+  } else {
+    start = new Date(d.getFullYear(), d.getMonth(), 1, 0,0,0,0);
+    end = new Date(d.getFullYear(), d.getMonth()+1, 0, 23,59,59,999);
+    label = start.toLocaleDateString(undefined,{month:"long", year:"numeric"});
+  }
+  return { start, end, label };
+}
+
+function renderReport(){
+  const panel = document.getElementById("reportsPanel");
+  if(!panel || !panel.classList.contains("show")) return; // only compute while the tab is actually open
+
+  const { start, end, label } = getReportRange();
+  document.getElementById("reportPeriodLabel").textContent = label;
+
+  const periodDocs = allOrderDocs.filter(d=>{
+    const o = d.data();
+    if(!o.createdAt || !o.createdAt.toDate) return false;
+    const t = o.createdAt.toDate();
+    return t >= start && t <= end;
+  });
+  currentReportDocs = periodDocs;
+
+  const cancelledDocs = periodDocs.filter(d => (d.data().status||"New") === "Cancelled");
+  const deliveredDocs = periodDocs.filter(d => (d.data().status||"New") === "Delivered");
+  const revenueDocs = periodDocs.filter(d => (d.data().status||"New") !== "Cancelled");
+  const totalRevenue = revenueDocs.reduce((s,d)=> s + (d.data().total||0), 0);
+  const avgOrderValue = revenueDocs.length ? Math.round(totalRevenue / revenueDocs.length) : 0;
+
+  document.getElementById("reportTotalOrders").textContent = periodDocs.length;
+  document.getElementById("reportTotalRevenue").textContent = "₹" + totalRevenue;
+  document.getElementById("reportDelivered").textContent = deliveredDocs.length;
+  document.getElementById("reportCancelled").textContent = cancelledDocs.length;
+  document.getElementById("reportAvgOrder").textContent = "₹" + avgOrderValue;
+
+  const veg = {};
+  periodDocs.forEach(d=>{
+    if((d.data().status||"New") === "Cancelled") return;
+    (d.data().items||[]).forEach(it=>{
+      const key = (it.name||"") + "|" + (it.unit||"");
+      if(!veg[key]) veg[key] = { name: it.name, te: it.te||"", unit: it.unit||"", qty:0, revenue:0 };
+      veg[key].qty += Number(it.qty) || 0;
+      veg[key].revenue += Number(it.lineTotal) || 0;
+    });
+  });
+  const vegList = Object.values(veg).sort((a,b)=> b.revenue - a.revenue);
+  const tbody = document.getElementById("reportVegBody");
+  const emptyEl = document.getElementById("reportVegEmpty");
+
+  if(vegList.length === 0){
+    tbody.innerHTML = "";
+    emptyEl.innerHTML = `<div class="empty-state">No orders in this period.</div>`;
+  } else {
+    emptyEl.innerHTML = "";
+    tbody.innerHTML = vegList.map(v => `
+      <tr>
+        <td data-label="Vegetable">${v.name}${v.te ? " / "+v.te : ""}</td>
+        <td data-label="Quantity sold">${v.qty} ${v.unit}</td>
+        <td data-label="Revenue">₹${v.revenue}</td>
+      </tr>
+    `).join("");
+  }
+}
+
+function exportReportCsv(){
+  if(currentReportDocs.length === 0){
+    alert("No orders in this period to export.");
+    return;
+  }
+  const escape = (val) => `"${String(val ?? "").replace(/"/g,'""')}"`;
+  const header = ["Order Number","Date","Status","Name","Phone","Address","Area","Slot","Items","Total"];
+  const rows = currentReportDocs.map(doc=>{
+    const o = doc.data();
+    const when = o.createdAt && o.createdAt.toDate ? o.createdAt.toDate().toLocaleString() : "";
+    const itemsStr = (o.items||[]).map(it=>`${it.name} x${it.qty}${it.unit}`).join("; ");
+    return [
+      o.orderNumber || doc.id, when, o.status || "New", o.name || "", o.phone || "",
+      o.address || "", o.area || "", o.slot || "", itemsStr, o.total || 0
+    ].map(escape).join(",");
+  });
+  const csv = [header.map(escape).join(","), ...rows].join("\n");
+  const blob = new Blob([csv], { type:"text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  const { label } = getReportRange();
+  a.download = `weekend-veggies-${reportType}-report-${label.replace(/[^a-z0-9]+/gi,"-")}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 let ordersUnsub = null;
 let customersUnsub = null;
 let productsUnsub = null;
 let agentsUnsub = null;
+let settingsUnsub = null;
 let allOrderDocs = [];
 let allCustomerDocs = [];
 let agentsList = []; // [{id, name}]
@@ -477,6 +663,7 @@ auth.onAuthStateChanged(user=>{
     if(customersUnsub) customersUnsub();
     if(productsUnsub) productsUnsub();
     if(agentsUnsub) agentsUnsub();
+    if(settingsUnsub) settingsUnsub();
   }
 });
 
@@ -485,10 +672,13 @@ function showTab(tab){
   document.getElementById("tabHistoryBtn").classList.toggle("active", tab==="history");
   document.getElementById("tabCustomersBtn").classList.toggle("active", tab==="customers");
   document.getElementById("tabProductsBtn").classList.toggle("active", tab==="products");
+  document.getElementById("tabReportsBtn").classList.toggle("active", tab==="reports");
   document.getElementById("pendingPanel").classList.toggle("show", tab==="pending");
   document.getElementById("historyPanel").classList.toggle("show", tab==="history");
   document.getElementById("customersPanel").classList.toggle("show", tab==="customers");
   document.getElementById("productsPanel").classList.toggle("show", tab==="products");
+  document.getElementById("reportsPanel").classList.toggle("show", tab==="reports");
+  if(tab==="reports") renderReport();
 }
 
 function orderMatchesSearch(o, q){
@@ -787,9 +977,25 @@ function renderCustomersTable(){
 }
 
 function attachListeners(){
+  settingsUnsub = db.collection("settings").doc("config").onSnapshot(doc=>{
+    const closed = doc.exists && doc.data().ordersClosed === true;
+    const statusText = document.getElementById("orderStatusText");
+    const statusBtn = document.getElementById("orderStatusBtn");
+    if(closed){
+      statusText.textContent = "🚫 Closed to customers";
+      statusText.style.color = "var(--tomato)";
+      statusBtn.textContent = "✅ Reopen ordering";
+    } else {
+      statusText.textContent = "✅ Open for orders";
+      statusText.style.color = "var(--green-dark)";
+      statusBtn.textContent = "🚫 Close ordering";
+    }
+  });
+
   ordersUnsub = db.collection("orders").orderBy("createdAt","desc").onSnapshot(snap=>{
     allOrderDocs = snap.docs;
     renderOrderTabs();
+    renderReport();
   });
 
   agentsUnsub = db.collection("agents").orderBy("name").onSnapshot(snap=>{
@@ -831,6 +1037,21 @@ function attachListeners(){
       </div>`;
     }).join("");
   });
+}
+
+async function toggleOrdering(){
+  const ref = db.collection("settings").doc("config");
+  try{
+    const doc = await ref.get();
+    const currentlyClosed = doc.exists && doc.data().ordersClosed === true;
+    const next = !currentlyClosed;
+    if(next && !confirm("This will immediately hide the shop from customers and show the 'Orders Are Closed' message. Continue?")) return;
+    if(!next && !confirm("This will reopen the shop for customers right away. Continue?")) return;
+    await ref.set({ ordersClosed: next }, { merge:true });
+  } catch(err){
+    alert("Couldn't update ordering status — please try again.");
+    console.error(err);
+  }
 }
 
 function toggleAddForm(){
