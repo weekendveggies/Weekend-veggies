@@ -96,6 +96,7 @@
   .badge-Confirmed{background:#FFF3DE; color:var(--carrot);}
   .badge-OutforDelivery{background:#E4EEFB; color:#2A5DAB;}
   .badge-Delivered{background:#E8F3DE; color:var(--green-dark);}
+  .badge-Cancelled{background:#EDEDED; color:#6B6B6B;}
   .status-select{
     border:1.5px solid var(--line); border-radius:8px; padding:7px 10px; font-size:12.5px; font-weight:600;
     background:var(--card); color:var(--ink);
@@ -190,6 +191,26 @@
   .material-row .m-name{font-weight:600;}
   .material-row .m-qty{font-weight:700; color:var(--green-dark); white-space:nowrap;}
 
+  /* ---- Agent management ---- */
+  .agent-card{
+    background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:16px 18px; margin-bottom:18px; box-shadow:var(--shadow);
+  }
+  .agent-card h3{margin:0 0 12px; font-size:16px;}
+  .agent-add-row{display:flex; gap:8px; margin-bottom:12px;}
+  .agent-add-row input{
+    flex:1; padding:9px 12px; border:1.5px solid var(--line); border-radius:9px; font-size:13.5px;
+  }
+  .agent-chips{display:flex; flex-wrap:wrap; gap:8px;}
+  .agent-chip{
+    display:flex; align-items:center; gap:6px; background:var(--paper-dim);
+    border:1px solid var(--line); border-radius:999px; padding:6px 8px 6px 14px; font-size:13px; font-weight:600;
+  }
+  .agent-chip button{
+    background:none; border:none; color:var(--tomato); font-weight:700; cursor:pointer; font-size:14px;
+    width:20px; height:20px; border-radius:50%;
+  }
+
   /* ---- Print view (parcel slips) ---- */
   #printArea{display:none;}
   .parcel-slip{
@@ -207,6 +228,7 @@
     padding:8px 10px; margin:10px 0; font-size:13.5px;
   }
   .parcel-note strong{color:var(--carrot);}
+
   @media print{
     body *{ visibility:hidden; }
     #printArea, #printArea *{ visibility:visible; }
@@ -271,11 +293,22 @@
 
   <div class="panel">
     <div class="panel-section show" id="pendingPanel">
-      <div class="products-toolbar">
-        <button class="btn btn-outline" onclick="toggleMaterialSummary()" id="materialToggleBtn">📋 Total material needed</button>
-        <button class="btn btn-outline" onclick="exportOrdersCsv()">⬇️ Export all orders (CSV)</button>
-        <button class="btn btn-outline" onclick="printPendingOrders()">🖨️ Print all pending orders</button>
+      <div class="products-toolbar" style="justify-content:space-between;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <label style="font-size:12.5px; font-weight:700; color:var(--ink-soft);">Group by:</label>
+          <select class="status-select" id="groupBySelect" onchange="renderOrderTabs()">
+            <option value="area">Delivery Area</option>
+            <option value="agent">Delivery Agent</option>
+          </select>
+        </div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn btn-outline" onclick="toggleAgentManage()" id="agentToggleBtn">🛵 Manage agents</button>
+          <button class="btn btn-outline" onclick="toggleMaterialSummary()" id="materialToggleBtn">📋 Total material needed</button>
+          <button class="btn btn-outline" onclick="exportOrdersCsv()">⬇️ Export all orders (CSV)</button>
+          <button class="btn btn-outline" onclick="printPendingOrders()">🖨️ Print all pending orders</button>
+        </div>
       </div>
+      <div id="agentManageArea" style="display:none;"></div>
       <div id="materialSummaryArea" style="display:none;"></div>
       <div id="pendingList"></div>
     </div>
@@ -365,8 +398,10 @@ const db = firebase.firestore();
 let ordersUnsub = null;
 let customersUnsub = null;
 let productsUnsub = null;
+let agentsUnsub = null;
 let allOrderDocs = [];
 let allCustomerDocs = [];
+let agentsList = []; // [{id, name}]
 
 const CATEGORY_NAMES = {
   leafy:"Leafy Greens", root:"Root Veg", gourd:"Gourds & Beans",
@@ -441,6 +476,7 @@ auth.onAuthStateChanged(user=>{
     if(ordersUnsub) ordersUnsub();
     if(customersUnsub) customersUnsub();
     if(productsUnsub) productsUnsub();
+    if(agentsUnsub) agentsUnsub();
   }
 });
 
@@ -463,6 +499,75 @@ function orderMatchesSearch(o, q){
       || (o.orderNumber||"").toLowerCase().includes(q);
 }
 
+let agentManageVisible = false;
+
+function toggleAgentManage(){
+  agentManageVisible = !agentManageVisible;
+  document.getElementById("agentToggleBtn").textContent = agentManageVisible ? "🛵 Hide agents" : "🛵 Manage agents";
+  renderAgentManage();
+}
+
+function renderAgentManage(){
+  const area = document.getElementById("agentManageArea");
+  if(!agentManageVisible){
+    area.style.display = "none";
+    return;
+  }
+  area.style.display = "block";
+  area.innerHTML = `
+    <div class="agent-card">
+      <h3>🛵 Delivery agents</h3>
+      <div class="sub" style="margin-bottom:10px;">Each agent needs their own login to view their orders. First create their email/password in Firebase Console → Authentication → Users, then add them here with the SAME email so they're linked.</div>
+      <div class="agent-add-row">
+        <input id="newAgentName" placeholder="Agent name (e.g. Ravi)">
+        <input id="newAgentEmail" placeholder="Login email (e.g. ravi@example.com)">
+        <button class="btn btn-primary" onclick="addAgent()">Add</button>
+      </div>
+      <div class="agent-chips" id="agentChips">
+        ${agentsList.length === 0
+          ? `<span style="color:var(--ink-soft); font-size:13px;">No agents added yet.</span>`
+          : agentsList.map(a => `<span class="agent-chip">${a.name}${a.email ? " · "+a.email : ""} <button onclick="removeAgent('${a.id}','${a.name.replace(/'/g,"")}')">✕</button></span>`).join("")}
+      </div>
+    </div>
+  `;
+}
+
+async function addAgent(){
+  const nameInput = document.getElementById("newAgentName");
+  const emailInput = document.getElementById("newAgentEmail");
+  const name = nameInput.value.trim();
+  const email = emailInput.value.trim().toLowerCase();
+  if(!name) return;
+  const exists = agentsList.some(a => a.name.toLowerCase() === name.toLowerCase());
+  if(exists){
+    alert(`"${name}" is already in your agents list.`);
+    return;
+  }
+  try{
+    await db.collection("agents").add({ name, email });
+    nameInput.value = "";
+    emailInput.value = "";
+  } catch(err){
+    alert("Couldn't add the agent — please try again.");
+    console.error(err);
+  }
+}
+
+function removeAgent(agentId, name){
+  if(!confirm(`Remove "${name}" from your delivery agents list? Orders already assigned to them will keep showing their name until reassigned.`)) return;
+  db.collection("agents").doc(agentId).delete().catch(err=>{
+    alert("Couldn't remove the agent — please try again.");
+    console.error(err);
+  });
+}
+
+function assignAgent(orderId, agentName){
+  db.collection("orders").doc(orderId).update({ agent: agentName }).catch(err=>{
+    alert("Couldn't assign the agent — check your connection and try again.");
+    console.error(err);
+  });
+}
+
 let materialSummaryVisible = false;
 
 function toggleMaterialSummary(){
@@ -480,7 +585,10 @@ function renderMaterialSummary(){
   }
   area.style.display = "block";
 
-  const pendingDocs = allOrderDocs.filter(d => (d.data().status || "New") !== "Delivered");
+  const pendingDocs = allOrderDocs.filter(d => {
+    const status = d.data().status || "New";
+    return status !== "Delivered" && status !== "Cancelled";
+  });
   const totals = {}; // key: "name|unit" -> { name, te, unit, qty }
 
   pendingDocs.forEach(d=>{
@@ -518,23 +626,33 @@ function renderOrderTabs(){
   const pendingList = document.getElementById("pendingList");
   const historyList = document.getElementById("historyList");
 
-  const pendingDocs = allOrderDocs.filter(d => (d.data().status || "New") !== "Delivered" && orderMatchesSearch(d.data(), q));
-  const historyDocs = allOrderDocs.filter(d => (d.data().status || "New") === "Delivered" && orderMatchesSearch(d.data(), q));
+  const pendingDocs = allOrderDocs.filter(d => {
+    const status = d.data().status || "New";
+    return status !== "Delivered" && status !== "Cancelled" && orderMatchesSearch(d.data(), q);
+  });
+  const historyDocs = allOrderDocs.filter(d => {
+    const status = d.data().status || "New";
+    return (status === "Delivered" || status === "Cancelled") && orderMatchesSearch(d.data(), q);
+  });
 
-  // Group pending orders by delivery area, so staff can pack/deliver zone by zone
+  // Group pending orders by delivery area OR delivery agent, based on the selector
   if(pendingDocs.length === 0){
     pendingList.innerHTML = `<div class="empty-state">${q ? "No matching pending orders." : "No pending deliveries. New orders will appear here in real time."}</div>`;
   } else {
+    const groupBy = (document.getElementById("groupBySelect") || {}).value || "area";
     const groups = {};
     pendingDocs.forEach(d=>{
-      const area = d.data().area || "No area specified";
-      if(!groups[area]) groups[area] = [];
-      groups[area].push(d);
+      const key = groupBy === "agent"
+        ? (d.data().agent || "Unassigned")
+        : (d.data().area || "No area specified");
+      if(!groups[key]) groups[key] = [];
+      groups[key].push(d);
     });
-    const areaNames = Object.keys(groups).sort();
-    pendingList.innerHTML = areaNames.map(area => `
-      <div class="area-group-header">📍 ${area} (${groups[area].length})</div>
-      ${groups[area].map(orderCardHtml).join("")}
+    const groupNames = Object.keys(groups).sort();
+    const icon = groupBy === "agent" ? "🛵" : "📍";
+    pendingList.innerHTML = groupNames.map(name => `
+      <div class="area-group-header">${icon} ${name} (${groups[name].length})</div>
+      ${groups[name].map(orderCardHtml).join("")}
     `).join("");
   }
 
@@ -552,8 +670,14 @@ function updateStats(){
     const o = d.data();
     return o.createdAt && o.createdAt.toDate && o.createdAt.toDate().toDateString() === today;
   });
-  const todayRevenue = todayDocs.reduce((sum,d)=> sum + (d.data().total || 0), 0);
-  const pendingCount = allOrderDocs.filter(d => (d.data().status || "New") !== "Delivered").length;
+  // Cancelled orders don't count toward revenue since no money was actually collected
+  const todayRevenue = todayDocs
+    .filter(d => (d.data().status || "New") !== "Cancelled")
+    .reduce((sum,d)=> sum + (d.data().total || 0), 0);
+  const pendingCount = allOrderDocs.filter(d => {
+    const status = d.data().status || "New";
+    return status !== "Delivered" && status !== "Cancelled";
+  }).length;
 
   document.getElementById("statTodayOrders").textContent = todayDocs.length;
   document.getElementById("statTodayRevenue").textContent = "₹" + todayRevenue;
@@ -613,11 +737,16 @@ function orderCardHtml(doc){
     ${o.note ? `<div class="order-meta" style="margin-bottom:10px;">📝 ${o.note}</div>` : ""}
     <div class="order-footer">
       <span class="badge badge-${status.replace(/\s/g,'')}">${status}</span>
+      <select class="status-select" onchange="assignAgent('${doc.id}', this.value)">
+        <option value="">🛵 Unassigned</option>
+        ${agentsList.map(a => `<option value="${a.name}" ${o.agent===a.name?"selected":""}>🛵 ${a.name}</option>`).join("")}
+      </select>
       <select class="status-select" onchange="updateStatus('${doc.id}', this.value)">
         <option value="New" ${status==="New"?"selected":""}>New</option>
         <option value="Confirmed" ${status==="Confirmed"?"selected":""}>Confirmed</option>
         <option value="Out for Delivery" ${status==="Out for Delivery"?"selected":""}>Out for Delivery</option>
         <option value="Delivered" ${status==="Delivered"?"selected":""}>Delivered</option>
+        <option value="Cancelled" ${status==="Cancelled"?"selected":""}>Cancelled</option>
       </select>
     </div>
   </div>`;
@@ -661,6 +790,12 @@ function attachListeners(){
   ordersUnsub = db.collection("orders").orderBy("createdAt","desc").onSnapshot(snap=>{
     allOrderDocs = snap.docs;
     renderOrderTabs();
+  });
+
+  agentsUnsub = db.collection("agents").orderBy("name").onSnapshot(snap=>{
+    agentsList = snap.docs.map(d => ({ id: d.id, name: d.data().name, email: d.data().email || "" }));
+    renderAgentManage();
+    renderOrderTabs(); // refresh order cards so agent dropdowns show the current list
   });
 
   customersUnsub = db.collection("customers").orderBy("updatedAt","desc").onSnapshot(snap=>{
@@ -824,7 +959,8 @@ async function seedProducts(){
 const STATUS_MESSAGES = {
   "Confirmed": (o) => `Hi ${o.name}! Your Weekend Veggies order ${o.orderNumber || ""} (₹${o.total}) is confirmed for ${o.slot}. We'll message you again when it's out for delivery. Thank you! 🥬`,
   "Out for Delivery": (o) => `Hi ${o.name}! Your Weekend Veggies order ${o.orderNumber || ""} is out for delivery and should reach you soon at ${o.area}. 🚚`,
-  "Delivered": (o) => `Hi ${o.name}! Your Weekend Veggies order ${o.orderNumber || ""} has been delivered. Thank you for ordering with us — see you next weekend! 🥬`
+  "Delivered": (o) => `Hi ${o.name}! Your Weekend Veggies order ${o.orderNumber || ""} has been delivered. Thank you for ordering with us — see you next weekend! 🥬`,
+  "Cancelled": (o) => `Hi ${o.name}, your Weekend Veggies order ${o.orderNumber || ""} has been cancelled. If this wasn't expected or you have questions, please reply here and we'll sort it out. Sorry for the inconvenience.`
 };
 
 async function updateStatus(orderId, status){
@@ -852,7 +988,10 @@ async function updateStatus(orderId, status){
 function printPendingOrders(){
   const printArea = document.getElementById("printArea");
   db.collection("orders").orderBy("createdAt","desc").get().then(snap=>{
-    const pending = snap.docs.filter(d => (d.data().status || "New") !== "Delivered");
+    const pending = snap.docs.filter(d => {
+      const status = d.data().status || "New";
+      return status !== "Delivered" && status !== "Cancelled";
+    });
     if(pending.length === 0){
       alert("No pending orders to print.");
       return;
@@ -870,7 +1009,7 @@ function printPendingOrders(){
         <div class="parcel-row"><strong>Phone:</strong> ${o.phone || ""}</div>
         <div class="parcel-row"><strong>Address:</strong> ${o.address || ""}</div>
         <div class="parcel-row"><strong>Area / Slot:</strong> ${o.area || ""} · ${o.slot || ""}</div>
-        ${o.note ? `<div class="parcel-row"><strong>Note:</strong> ${o.note}</div>` : ""}
+        ${o.note ? `<div class="parcel-note">📝 <strong>Customer note:</strong> ${o.note}</div>` : ""}
         <div class="parcel-items">${itemsHtml}</div>
         <div class="parcel-row"><strong>Total: ₹${o.total || 0}</strong></div>
         <div class="parcel-checks">
