@@ -186,7 +186,7 @@
     width:28px;height:30px; border:none; background:var(--paper-dim);
     font-size:16px; cursor:pointer; color:var(--ink);
   }
-  .stepper span{min-width:44px; text-align:center; font-weight:700; font-size:12.5px; padding:0 4px; white-space:nowrap;}
+  .stepper span{min-width:24px; text-align:center; font-weight:700; font-size:13.5px; padding:0 4px; white-space:nowrap;}
   .add-btn{
     background:var(--green); color:#fff; border:none;
     border-radius:9px; padding:7px 13px; font-weight:700;
@@ -279,6 +279,8 @@
     .grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px;}
     .hero{padding:30px 16px 36px;}
     .peel{display:none;}
+    .unit-pill{padding:3px 8px; font-size:11px;}
+    .add-btn{padding:7px 10px; font-size:12px;}
   }
 
   /* ---------- Closed-for-orders screen ---------- */
@@ -383,7 +385,7 @@
 
 <script>
 /* ================= CONFIG — edit these for your business ================= */
-const WHATSAPP_NUMBER = "919494178554"; // country code + number, no + or spaces
+const WHATSAPP_NUMBER = "919393453977"; // country code + number, no + or spaces
 const ORDER_WINDOW = "Wednesday – Friday"; // when you accept orders
 const DELIVERY_AREAS = [
   "Zone 1 — Central", "Zone 2 — North", "Zone 3 — South",
@@ -620,7 +622,7 @@ function renderGrid(){
       <div class="qty-row">
         <div class="stepper">
           <button onclick="changeQty('${cartKey}',-1)">−</button>
-          <span>${qty > 0 ? `${qty} ${activeOpt.unit}` : '0'}</span>
+          <span>${qty}</span>
           <button onclick="changeQty('${cartKey}',1)">+</button>
         </div>
         <button class="add-btn" onclick="changeQty('${cartKey}',1)">${qty>0?'Added':'Add'}</button>
