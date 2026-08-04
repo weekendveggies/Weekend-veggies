@@ -217,14 +217,19 @@
   .drawer-body{flex:1; overflow-y:auto; padding:16px 20px;}
   .empty-cart{text-align:center; color:var(--ink-soft); padding:60px 10px; font-size:14px;}
   .cart-item{
-    display:flex; align-items:center; gap:12px;
+    display:flex; align-items:center; gap:10px;
     padding:12px 0; border-bottom:1px solid var(--line);
+    flex-wrap:wrap;
   }
   .cart-item .veg-icon{font-size:26px; margin:0;}
-  .ci-info{flex:1;}
+  .ci-info{flex:1; min-width:110px;}
   .ci-name{font-weight:700; font-size:14px;}
   .ci-price{font-size:12.5px; color:var(--ink-soft);}
-  .remove-btn{background:none;border:none;color:var(--tomato);font-size:12px;font-weight:700;cursor:pointer;margin-top:3px;}
+  .cart-item .stepper{flex-shrink:0;}
+  .cart-delete-btn{
+    background:none; border:none; color:var(--tomato); font-size:16px;
+    cursor:pointer; padding:6px; flex-shrink:0;
+  }
 
   .form-block{margin-top:18px; padding-top:16px; border-top:1.5px dashed var(--line);}
   .form-block label{
@@ -640,6 +645,13 @@ function changeQty(id, delta){
   renderDrawer();
 }
 
+function removeCartItem(key){
+  delete cart[key];
+  renderGrid();
+  renderCartCount();
+  renderDrawer();
+}
+
 function renderCartCount(){
   const count = Object.values(cart).reduce((a,b)=>a+b,0);
   document.getElementById("cartCount").textContent = count;
@@ -675,10 +687,15 @@ function renderDrawer(){
     <div class="cart-item">
       <div class="veg-icon">${p.icon}</div>
       <div class="ci-info">
-        <div class="ci-name">${p.name}${p.te ? " / "+p.te : ""} × ${qty} ${unit}</div>
+        <div class="ci-name">${p.name}${p.te ? " / "+p.te : ""} · ${unit}</div>
         <div class="ci-price">₹${price} each · ₹${price*qty}</div>
-        <button class="remove-btn" onclick="changeQty('${key}',-${qty})">Remove</button>
       </div>
+      <div class="stepper">
+        <button onclick="changeQty('${key}',-1)">−</button>
+        <span>${qty}</span>
+        <button onclick="changeQty('${key}',1)">+</button>
+      </div>
+      <button class="cart-delete-btn" onclick="removeCartItem('${key}')" title="Remove item">🗑️</button>
     </div>`;
   }).join("");
 
