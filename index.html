@@ -167,6 +167,12 @@
   .veg-name{font-size:16px; font-weight:700; margin:0 0 2px;}
   .veg-name-te{font-size:13px; color:var(--ink-soft); margin:0 0 2px;}
   .veg-unit{font-size:12px; color:var(--ink-soft); margin-bottom:12px;}
+  .unit-toggle{display:flex; gap:6px; margin-bottom:10px;}
+  .unit-pill{
+    border:1.5px solid var(--line); background:var(--paper-dim); color:var(--ink-soft);
+    padding:4px 10px; border-radius:999px; font-size:11.5px; font-weight:700; cursor:pointer;
+  }
+  .unit-pill.active{background:var(--green); color:#fff; border-color:var(--green);}
   .qty-row{
     margin-top:auto;
     display:flex; align-items:center; justify-content:space-between;
@@ -294,6 +300,11 @@
   .closed-brand{margin-top:26px; padding-top:20px; border-top:1px solid rgba(255,255,255,0.25);}
   .closed-brand .name{color:#fff; font-weight:700; font-size:16px; font-family:Georgia,serif;}
   .closed-brand .tag{color:#C7E896; font-size:13px; margin-top:4px;}
+  .closed-wa-btn{
+    display:inline-flex; align-items:center; gap:8px; margin-top:18px;
+    background:#25D366; color:#0b2b16; text-decoration:none;
+    padding:11px 20px; border-radius:999px; font-weight:700; font-size:14px;
+  }
 </style>
 </head>
 <body>
@@ -321,6 +332,7 @@
     <div class="closed-brand">
       <div class="name">📍 Weekend Veggies</div>
       <div class="tag">Fresh from the market to your doorstep.</div>
+      <a id="closedWaLink" class="closed-wa-btn" href="#" target="_blank">💬 Message us on WhatsApp</a>
     </div>
   </div>
 </div>
@@ -457,10 +469,33 @@ const catColor = id => (CATEGORIES.find(c=>c.id===id)||{}).color || "var(--green
 const catName  = id => (CATEGORIES.find(c=>c.id===id)||{}).name || "";
 
 let activeCat = "all";
-let cart = {}; // id -> qty
+let cart = {}; // "productId::unit" -> qty
 let PRODUCTS = []; // populated live from Firestore below
 let productsLoaded = false;
 let capturedLocation = null; // { lat, lng } once customer shares location
+let selectedUnitFor = {}; // productId -> currently chosen unit (for items with a 2nd size)
+
+function unitOptionsFor(p){
+  const opts = [{ unit: p.unit, price: p.price }];
+  if(p.halfKgOption){
+    opts.push({ unit: "500g", price: Math.round((p.price || 0) / 2) });
+  }
+  return opts;
+}
+function priceForUnit(p, unit){
+  const opts = unitOptionsFor(p);
+  const match = opts.find(o => o.unit === unit);
+  return match ? match.price : p.price;
+}
+function selectUnit(productId, unit){
+  selectedUnitFor[productId] = unit;
+  renderGrid();
+}
+function cartKeyFor(productId, unit){ return productId + "::" + unit; }
+function parseCartKey(key){
+  const idx = key.lastIndexOf("::");
+  return { id: key.slice(0, idx), unit: key.slice(idx+2) };
+}
 
 function useMyLocation(){
   const statusEl = document.getElementById("locStatus");
@@ -562,24 +597,33 @@ function renderGrid(){
   }
   const list = activeCat==="all" ? PRODUCTS : PRODUCTS.filter(p=>p.cat===activeCat);
   grid.innerHTML = list.map(p => {
-    const qty = cart[p.id] || 0;
+    const opts = unitOptionsFor(p);
+    const hasTwoSizes = opts.length > 1;
+    const selectedUnit = selectedUnitFor[p.id] || p.unit;
+    const activeOpt = opts.find(o => o.unit === selectedUnit) || opts[0];
+    const cartKey = cartKeyFor(p.id, activeOpt.unit);
+    const qty = cart[cartKey] || 0;
     return `
     <div class="card">
       <div class="card-top" style="background:${catColor(p.cat)}"></div>
-      <div class="tag">₹${p.price}/${p.unit}</div>
+      <div class="tag">₹${activeOpt.price}/${activeOpt.unit}</div>
       ${p.photo
         ? `<img class="veg-photo" src="${p.photo}" alt="${p.name}" onerror="this.outerHTML='<div class=&quot;veg-icon&quot;>${p.icon}</div>'">`
         : `<div class="veg-icon">${p.icon}</div>`}
       <div class="veg-name">${p.name}</div>
       ${p.te ? `<div class="veg-name-te">${p.te}</div>` : ""}
       <div class="veg-unit">${catName(p.cat)}</div>
+      ${hasTwoSizes ? `
+      <div class="unit-toggle">
+        ${opts.map(o => `<button class="unit-pill ${o.unit===activeOpt.unit?'active':''}" onclick="selectUnit('${p.id}','${o.unit}')">${o.unit}</button>`).join("")}
+      </div>` : ""}
       <div class="qty-row">
         <div class="stepper">
-          <button onclick="changeQty('${p.id}',-1)">−</button>
-          <span>${qty > 0 ? `${qty} ${p.unit}` : '0'}</span>
-          <button onclick="changeQty('${p.id}',1)">+</button>
+          <button onclick="changeQty('${cartKey}',-1)">−</button>
+          <span>${qty > 0 ? `${qty} ${activeOpt.unit}` : '0'}</span>
+          <button onclick="changeQty('${cartKey}',1)">+</button>
         </div>
-        <button class="add-btn" onclick="changeQty('${p.id}',1)">${qty>0?'Added':'Add'}</button>
+        <button class="add-btn" onclick="changeQty('${cartKey}',1)">${qty>0?'Added':'Add'}</button>
       </div>
     </div>`;
   }).join("");
@@ -600,9 +644,10 @@ function renderCartCount(){
 }
 
 function cartTotal(){
-  return Object.entries(cart).reduce((sum,[id,qty])=>{
+  return Object.entries(cart).reduce((sum,[key,qty])=>{
+    const { id, unit } = parseCartKey(key);
     const p = PRODUCTS.find(x=>x.id==id);
-    return sum + (p ? p.price*qty : 0);
+    return sum + (p ? priceForUnit(p, unit)*qty : 0);
   },0);
 }
 
@@ -619,15 +664,18 @@ function renderDrawer(){
   }
   waBtn.disabled = false;
 
-  let itemsHtml = entries.map(([id,qty])=>{
+  let itemsHtml = entries.map(([key,qty])=>{
+    const { id, unit } = parseCartKey(key);
     const p = PRODUCTS.find(x=>x.id==id);
+    if(!p) return "";
+    const price = priceForUnit(p, unit);
     return `
     <div class="cart-item">
       <div class="veg-icon">${p.icon}</div>
       <div class="ci-info">
-        <div class="ci-name">${p.name}${p.te ? " / "+p.te : ""} × ${qty} ${p.unit}</div>
-        <div class="ci-price">₹${p.price} each · ₹${p.price*qty}</div>
-        <button class="remove-btn" onclick="changeQty('${p.id}',-${qty})">Remove</button>
+        <div class="ci-name">${p.name}${p.te ? " / "+p.te : ""} × ${qty} ${unit}</div>
+        <div class="ci-price">₹${price} each · ₹${price*qty}</div>
+        <button class="remove-btn" onclick="changeQty('${key}',-${qty})">Remove</button>
       </div>
     </div>`;
   }).join("");
@@ -732,9 +780,11 @@ async function sendToWhatsApp(){
   if(waBtn.disabled) return; // guard against double-tap creating duplicate orders
   waBtn.disabled = true; waBtn.textContent = "Saving your order...";
 
-  const items = entries.map(([id,qty])=>{
+  const items = entries.map(([key,qty])=>{
+    const { id, unit } = parseCartKey(key);
     const p = PRODUCTS.find(x=>x.id==id);
-    return { id:p.id, name:p.name, te:p.te||"", qty, unit:p.unit, price:p.price, lineTotal:p.price*qty };
+    const price = priceForUnit(p, unit);
+    return { id:p.id, name:p.name, te:p.te||"", qty, unit, price, lineTotal:price*qty };
   });
   const total = cartTotal();
 
@@ -785,6 +835,10 @@ async function sendToWhatsApp(){
 
   waBtn.disabled = false; waBtn.textContent = "✅ Send order on WhatsApp";
 }
+
+// Point the "closed" screen's WhatsApp button at your business number (reuses WHATSAPP_NUMBER above)
+document.getElementById("closedWaLink").href =
+  `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent("Hi! I have a question about Weekend Veggies.")}`;
 
 renderChips();
 renderGrid();
