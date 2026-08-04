@@ -386,6 +386,10 @@
             <input id="newPhoto" placeholder="https://...">
           </div>
         </div>
+        <div style="margin-top:12px; display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" id="newHalfKg" style="width:16px; height:16px;">
+          <label for="newHalfKg" style="margin:0; text-transform:none; font-size:13px; font-weight:600; color:var(--ink);">Also offer a 500g option (auto-priced at exactly half the price above)</label>
+        </div>
         <div class="pform-actions">
           <button class="btn btn-primary" onclick="addProduct()">Save vegetable</button>
           <button class="btn btn-outline" onclick="toggleAddForm()">Cancel</button>
@@ -1059,6 +1063,11 @@ function attachListeners(){
           placeholder="Paste a photo URL here to show a real photo instead of the emoji..."
           value="${p.photo || ''}"
           onchange="updateProductField('${doc.id}','photo', this.value)">
+        <div style="flex:1 1 100%; margin-top:6px; display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" ${p.halfKgOption ? "checked" : ""} style="width:15px; height:15px;"
+            onchange="updateProductField('${doc.id}','halfKgOption', this.checked)">
+          <span style="font-size:12px; color:var(--ink-soft);">Also offer 500g (auto: ₹${Math.round((p.price||0)/2)})</span>
+        </div>
       </div>`;
     }).join("");
   });
@@ -1091,6 +1100,7 @@ async function addProduct(){
   const price = Number(document.getElementById("newPrice").value);
   const unit = document.getElementById("newUnit").value.trim() || "kg";
   const photo = document.getElementById("newPhoto").value.trim();
+  const halfKgOption = document.getElementById("newHalfKg").checked;
 
   if(!name || !price){
     alert("Please enter at least a name and a price.");
@@ -1105,7 +1115,7 @@ async function addProduct(){
     return;
   }
 
-  const data = { name, te, icon, cat, price, unit, inStock: true };
+  const data = { name, te, icon, cat, price, unit, inStock: true, halfKgOption };
   if(photo) data.photo = photo;
 
   try{
@@ -1116,6 +1126,7 @@ async function addProduct(){
     document.getElementById("newPrice").value = "";
     document.getElementById("newUnit").value = "";
     document.getElementById("newPhoto").value = "";
+    document.getElementById("newHalfKg").checked = false;
     toggleAddForm();
   } catch(err){
     alert("Couldn't add the vegetable — please try again.");
