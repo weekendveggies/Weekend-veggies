@@ -79,15 +79,24 @@
   }
 
   .order-card{
+    position:relative; overflow:hidden;
     background:var(--card); border:1px solid var(--line); border-radius:14px;
     padding:16px 18px; margin-bottom:14px; box-shadow:var(--shadow);
   }
+  .order-card-watermark{
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    width:110px; height:110px; border-radius:50%; object-fit:cover;
+    opacity:0.06; pointer-events:none; z-index:0;
+  }
+  .order-card > *{ position:relative; z-index:1; }
   .order-head{display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;}
   .order-cust{font-weight:700; font-size:15.5px;}
   .order-meta{font-size:12.5px; color:var(--ink-soft); margin-top:2px;}
   .order-total{font-size:19px; font-weight:700; font-family:Georgia,serif; white-space:nowrap;}
   .order-items{margin:12px 0; padding:12px 0; border-top:1px dashed var(--line); border-bottom:1px dashed var(--line);}
-  .order-item-row{display:flex; justify-content:space-between; align-items:center; font-size:13.5px; padding:3px 0; gap:8px;}
+  .order-item-row{display:flex; justify-content:space-between; align-items:center; font-size:13.5px; padding:8px 0; gap:8px; border-bottom:1px dashed var(--line);}
+  .order-item-row:last-child{border-bottom:none;}
+  .order-item-row > span:first-child{flex:1; padding-right:12px; border-right:1px dashed var(--line);}
   .item-avail-toggle{
     display:flex; align-items:center; gap:5px; font-size:11px; font-weight:600;
     color:var(--ink-soft); cursor:pointer; white-space:nowrap;
@@ -223,6 +232,16 @@
   .parcel-slip{
     border:2px dashed var(--ink); border-radius:10px; padding:16px 18px;
     margin-bottom:16px; page-break-inside:avoid;
+  }
+  .parcel-header{
+    display:flex; align-items:center; gap:10px; margin-bottom:10px;
+    padding-bottom:10px; border-bottom:1px solid var(--line);
+  }
+  .parcel-header img{
+    width:38px; height:38px; border-radius:50%; object-fit:cover; flex-shrink:0;
+  }
+  .parcel-header .parcel-brand{
+    font-family:Georgia,"Times New Roman",serif; font-weight:700; font-size:16px; color:var(--ink);
   }
   .parcel-slip h3{margin:0 0 4px; font-size:18px;}
   .parcel-order-no{font-size:13px; color:var(--ink-soft); margin-bottom:10px;}
@@ -1134,7 +1153,7 @@ function orderCardHtml(doc){
     return `
     <div class="order-item-row">
       <span style="${unavailable ? 'opacity:0.55;' : ''}">${it.name}${it.te ? " / "+it.te : ""} × ${it.qty} ${it.unit}</span>
-      <span style="display:flex; align-items:center; gap:10px;">
+      <span style="display:flex; align-items:center; gap:10px; padding-left:12px;">
         <label class="item-avail-toggle">
           <input type="checkbox" ${unavailable ? "checked" : ""} onchange="toggleItemAvailability('${doc.id}', ${idx})">
           Unavailable
@@ -1146,6 +1165,7 @@ function orderCardHtml(doc){
   const mapLink = (o.lat && o.lng) ? `<a href="https://maps.google.com/?q=${o.lat},${o.lng}" target="_blank" style="color:var(--green-dark); font-weight:600;">📍 View location</a>` : "";
   return `
   <div class="order-card">
+    <img class="order-card-watermark" src="logo.png" alt="">
     <div class="order-head">
       <div>
         <div class="order-cust">${o.name || "—"} <span style="color:var(--ink-soft); font-weight:400;">· ${orderNo}</span></div>
@@ -1493,6 +1513,10 @@ function printPendingOrders(){
       }).join("");
       return `
       <div class="parcel-slip">
+        <div class="parcel-header">
+          <img src="logo.png" alt="Weekend Veggies logo">
+          <span class="parcel-brand">Weekend Veggies</span>
+        </div>
         <h3>${o.name || "—"}</h3>
         <div class="parcel-order-no">Order ${orderNo} · ${o.status || "New"}</div>
         <div class="parcel-row"><strong>Phone:</strong> ${o.phone || ""}</div>
