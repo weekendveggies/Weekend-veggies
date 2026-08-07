@@ -190,12 +190,13 @@
   .material-card h3{margin:0 0 4px; font-size:16px;}
   .material-card .sub{font-size:12.5px; color:var(--ink-soft); margin-bottom:12px;}
   .material-row{
-    display:flex; justify-content:space-between; align-items:center;
-    padding:8px 0; border-bottom:1px dashed var(--line); font-size:14px;
+    padding:10px 0; border-bottom:1px dashed var(--line); font-size:14px;
   }
   .material-row:last-child{border-bottom:none;}
-  .material-row .m-name{font-weight:600;}
-  .material-row .m-qty{font-weight:700; color:var(--green-dark); white-space:nowrap;}
+  .material-row .m-name{font-weight:700; margin-bottom:4px;}
+  .material-row .m-detail{display:flex; justify-content:space-between; align-items:center; font-size:13px; color:var(--ink-soft); padding:1px 0;}
+  .material-row .m-detail .m-val{font-weight:700; color:var(--ink);}
+  .material-row .m-detail.m-qty-row .m-val{color:var(--green-dark);}
 
   /* ---- Agent management ---- */
   .agent-card{
@@ -321,6 +322,7 @@
         <div style="display:flex; gap:10px; flex-wrap:wrap;">
           <button class="btn btn-outline" onclick="toggleAgentManage()" id="agentToggleBtn">🛵 Manage agents</button>
           <button class="btn btn-outline" onclick="toggleMaterialSummary()" id="materialToggleBtn">📋 Total material needed</button>
+          <button class="btn btn-outline" onclick="viewAllOrdersMap()">🗺️ View all orders on map</button>
           <button class="btn btn-outline" onclick="exportOrdersCsv()">⬇️ Export all orders (CSV)</button>
           <button class="btn btn-outline" onclick="printPendingOrders()">🖨️ Print all pending orders</button>
         </div>
@@ -777,6 +779,24 @@ function toggleMaterialSummary(){
   renderMaterialSummary();
 }
 
+// Normalizes an item's unit + qty onto a single "base unit" per vegetable so a 500g pack
+// and a 1kg pack of the same veggie land in the same row instead of two separate rows.
+function normalizeToBaseUnit(unit, qty){
+  const u = (unit || "").trim().toLowerCase();
+  qty = Number(qty) || 0;
+  if(u === "500g" || u === "half kg" || u === "0.5kg"){
+    return { baseUnit: "kg", baseQty: qty * 0.5 };
+  }
+  if(u === "250g"){
+    return { baseUnit: "kg", baseQty: qty * 0.25 };
+  }
+  if(u === "kg"){
+    return { baseUnit: "kg", baseQty: qty };
+  }
+  // bunch, pc, and anything else — no conversion, unit itself is the base unit
+  return { baseUnit: u || "unit", baseQty: qty };
+}
+
 function renderMaterialSummary(){
   const area = document.getElementById("materialSummaryArea");
   if(!materialSummaryVisible){
@@ -789,15 +809,17 @@ function renderMaterialSummary(){
     const status = d.data().status || "New";
     return status !== "Delivered" && status !== "Cancelled";
   });
-  const totals = {}; // key: "name|unit" -> { name, te, unit, qty }
+  const totals = {}; // key: "name|baseUnit" -> { name, te, unit, qty, revenue }
 
   pendingDocs.forEach(d=>{
     const o = d.data();
     (o.items || []).forEach(it=>{
       if(it.unavailable === true) return; // skip items marked unavailable — no need to source them
-      const key = (it.name || "") + "|" + (it.unit || "");
-      if(!totals[key]) totals[key] = { name: it.name, te: it.te || "", unit: it.unit || "", qty: 0 };
-      totals[key].qty += Number(it.qty) || 0;
+      const { baseUnit, baseQty } = normalizeToBaseUnit(it.unit, it.qty);
+      const key = (it.name || "") + "|" + baseUnit;
+      if(!totals[key]) totals[key] = { name: it.name, te: it.te || "", unit: baseUnit, qty: 0, revenue: 0 };
+      totals[key].qty += baseQty;
+      totals[key].revenue += Number(it.lineTotal) || 0;
     });
   });
 
@@ -812,14 +834,58 @@ function renderMaterialSummary(){
     <div class="material-card">
       <h3>📋 Total material needed</h3>
       <div class="sub">Across ${pendingDocs.length} pending order${pendingDocs.length===1?"":"s"} (updates live as orders come in or get delivered)</div>
-      ${list.map(it => `
+      ${list.map(it => {
+        const qtyRounded = Math.round(it.qty * 100) / 100;
+        const pricePerUnit = qtyRounded > 0 ? Math.round((it.revenue / qtyRounded) * 100) / 100 : 0;
+        return `
         <div class="material-row">
-          <span class="m-name">${it.name}${it.te ? " / "+it.te : ""}</span>
-          <span class="m-qty">${it.qty} ${it.unit}</span>
+          <div class="m-name">${it.name}${it.te ? " / "+it.te : ""}</div>
+          <div class="m-detail m-qty-row"><span>Total quantity needed</span><span class="m-val">${qtyRounded} ${it.unit}</span></div>
+          <div class="m-detail"><span>Price per ${it.unit}</span><span class="m-val">₹${pricePerUnit}</span></div>
+          <div class="m-detail"><span>Total order value</span><span class="m-val">₹${Math.round(it.revenue)}</span></div>
         </div>
-      `).join("")}
+      `;}).join("")}
     </div>
   `;
+}
+
+// Opens a single Google Maps view with every pending order's delivery location plotted as a
+// multi-stop route (no API key needed — this uses Maps' public directions URL format).
+function viewAllOrdersMap(){
+  const pendingDocs = allOrderDocs.filter(d => {
+    const status = d.data().status || "New";
+    return status !== "Delivered" && status !== "Cancelled";
+  });
+  const withLocation = pendingDocs.filter(d => d.data().lat && d.data().lng);
+
+  if(withLocation.length === 0){
+    alert("None of the pending orders have a saved location yet.");
+    return;
+  }
+  if(withLocation.length === 1){
+    const o = withLocation[0].data();
+    window.open(`https://maps.google.com/?q=${o.lat},${o.lng}`, "_blank");
+    return;
+  }
+
+  // Google Maps directions URLs support an origin, a destination, and up to ~9 intermediate
+  // waypoints for free (no API key). Beyond ~10 stops we chunk into batches and open several tabs.
+  const MAX_STOPS_PER_MAP = 10;
+  const coords = withLocation.map(d => `${d.data().lat},${d.data().lng}`);
+
+  const chunks = [];
+  for(let i = 0; i < coords.length; i += MAX_STOPS_PER_MAP){
+    chunks.push(coords.slice(i, i + MAX_STOPS_PER_MAP));
+  }
+
+  if(chunks.length > 1){
+    if(!confirm(`You have ${coords.length} pending delivery locations. Google Maps can show about ${MAX_STOPS_PER_MAP} stops per route, so this will open ${chunks.length} map tabs to cover all of them. Continue?`)) return;
+  }
+
+  chunks.forEach(chunk=>{
+    const url = `https://www.google.com/maps/dir/${chunk.join("/")}`;
+    window.open(url, "_blank");
+  });
 }
 
 function renderOrderTabs(){
