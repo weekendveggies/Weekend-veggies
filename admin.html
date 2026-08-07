@@ -903,8 +903,8 @@ function viewAllOrdersMap(){
 <body>
 <div class="title-bar">🚚 Pending Delivery Locations (${points.length})</div>
 <div id="map"></div>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script>
+${'<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></scr' + 'ipt>'}
+${'<scr' + 'ipt>'}
   const map = L.map('map').setView([${avgLat}, ${avgLng}], 12);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap contributors'
@@ -926,7 +926,7 @@ function viewAllOrdersMap(){
     const group = L.featureGroup(markers);
     map.fitBounds(group.getBounds().pad(0.15));
   }
-</script>
+${'</scr' + 'ipt>'}
 </body>
 </html>`;
 
