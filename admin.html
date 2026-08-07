@@ -322,7 +322,7 @@
         <div style="display:flex; gap:10px; flex-wrap:wrap;">
           <button class="btn btn-outline" onclick="toggleAgentManage()" id="agentToggleBtn">🛵 Manage agents</button>
           <button class="btn btn-outline" onclick="toggleMaterialSummary()" id="materialToggleBtn">📋 Total material needed</button>
-          <button class="btn btn-outline" onclick="viewAllOrdersMap()">🗺️ View all orders on map (points only)</button>
+          <button class="btn btn-outline" onclick="viewAllOrdersMap()">🗺️ View all orders on map</button>
           <button class="btn btn-outline" onclick="exportOrdersCsv()">⬇️ Export all orders (CSV)</button>
           <button class="btn btn-outline" onclick="printPendingOrders()">🖨️ Print all pending orders</button>
         </div>
@@ -834,105 +834,58 @@ function renderMaterialSummary(){
     <div class="material-card">
       <h3>📋 Total material needed</h3>
       <div class="sub">Across ${pendingDocs.length} pending order${pendingDocs.length===1?"":"s"} (updates live as orders come in or get delivered)</div>
-      <table>
-        <thead><tr><th>Vegetable</th><th>Quantity needed</th><th>Price / unit</th><th>Total order value</th></tr></thead>
-        <tbody>
-          ${list.map(it => {
-            const qtyRounded = Math.round(it.qty * 100) / 100;
-            const pricePerUnit = qtyRounded > 0 ? Math.round((it.revenue / qtyRounded) * 100) / 100 : 0;
-            return `
-            <tr>
-              <td data-label="Vegetable">${it.name}${it.te ? " / "+it.te : ""}</td>
-              <td data-label="Quantity needed">${qtyRounded} ${it.unit}</td>
-              <td data-label="Price / unit">₹${pricePerUnit} / ${it.unit}</td>
-              <td data-label="Total order value">₹${Math.round(it.revenue)}</td>
-            </tr>`;
-          }).join("")}
-        </tbody>
-      </table>
+      ${list.map(it => {
+        const qtyRounded = Math.round(it.qty * 100) / 100;
+        const pricePerUnit = qtyRounded > 0 ? Math.round((it.revenue / qtyRounded) * 100) / 100 : 0;
+        return `
+        <div class="material-row">
+          <div class="m-name">${it.name}${it.te ? " / "+it.te : ""}</div>
+          <div class="m-detail m-qty-row"><span>Total quantity needed</span><span class="m-val">${qtyRounded} ${it.unit}</span></div>
+          <div class="m-detail"><span>Price per ${it.unit}</span><span class="m-val">₹${pricePerUnit}</span></div>
+          <div class="m-detail"><span>Total order value</span><span class="m-val">₹${Math.round(it.revenue)}</span></div>
+        </div>
+      `;}).join("")}
     </div>
   `;
 }
 
-// Opens a single map (in a new tab) with a pin for every pending order's delivery location —
-// just markers, no route/directions. Built with Leaflet + OpenStreetMap so it works with no API key.
+// Opens a single Google Maps view with every pending order's delivery location plotted as a
+// multi-stop route (no API key needed — this uses Maps' public directions URL format).
 function viewAllOrdersMap(){
   const pendingDocs = allOrderDocs.filter(d => {
     const status = d.data().status || "New";
     return status !== "Delivered" && status !== "Cancelled";
   });
-  const withLocation = pendingDocs
-    .map(d => d.data())
-    .filter(o => o.lat && o.lng);
+  const withLocation = pendingDocs.filter(d => d.data().lat && d.data().lng);
 
   if(withLocation.length === 0){
     alert("None of the pending orders have a saved location yet.");
     return;
   }
-
-  const win = window.open("", "_blank");
-  if(!win){
-    alert("Please allow pop-ups for this site to view the map.");
+  if(withLocation.length === 1){
+    const o = withLocation[0].data();
+    window.open(`https://maps.google.com/?q=${o.lat},${o.lng}`, "_blank");
     return;
   }
 
-  const points = withLocation.map(o => ({
-    lat: o.lat, lng: o.lng,
-    name: o.name || "—",
-    orderNo: o.orderNumber || "",
-    area: o.area || "",
-    slot: o.slot || "",
-    total: o.total || 0
-  }));
+  // Google Maps directions URLs support an origin, a destination, and up to ~9 intermediate
+  // waypoints for free (no API key). Beyond ~10 stops we chunk into batches and open several tabs.
+  const MAX_STOPS_PER_MAP = 10;
+  const coords = withLocation.map(d => `${d.data().lat},${d.data().lng}`);
 
-  const avgLat = points.reduce((s,p)=>s+p.lat,0) / points.length;
-  const avgLng = points.reduce((s,p)=>s+p.lng,0) / points.length;
-
-  const html = `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<title>Weekend Veggies — Pending Delivery Locations</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<style>
-  html, body, #map { height:100%; margin:0; padding:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
-  .title-bar{ background:#143B22; color:#FBF6EC; padding:10px 16px; font-size:15px; font-weight:700; }
-</style>
-</head>
-<body>
-<div class="title-bar">🚚 Pending Delivery Locations (${points.length})</div>
-<div id="map"></div>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script>
-  const map = L.map('map').setView([${avgLat}, ${avgLng}], 12);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap contributors'
-  }).addTo(map);
-
-  const points = ${JSON.stringify(points)};
-  const markers = [];
-  points.forEach(p => {
-    const marker = L.marker([p.lat, p.lng]).addTo(map);
-    marker.bindPopup(
-      '<strong>' + p.name + '</strong><br>' +
-      (p.orderNo ? p.orderNo + '<br>' : '') +
-      (p.area ? p.area + (p.slot ? ' · ' + p.slot : '') + '<br>' : '') +
-      '₹' + p.total
-    );
-    markers.push(marker);
-  });
-  if(markers.length > 1){
-    const group = L.featureGroup(markers);
-    map.fitBounds(group.getBounds().pad(0.15));
+  const chunks = [];
+  for(let i = 0; i < coords.length; i += MAX_STOPS_PER_MAP){
+    chunks.push(coords.slice(i, i + MAX_STOPS_PER_MAP));
   }
-</script>
-</body>
-</html>`;
 
-  win.document.open();
-  win.document.write(html);
-  win.document.close();
+  if(chunks.length > 1){
+    if(!confirm(`You have ${coords.length} pending delivery locations. Google Maps can show about ${MAX_STOPS_PER_MAP} stops per route, so this will open ${chunks.length} map tabs to cover all of them. Continue?`)) return;
+  }
+
+  chunks.forEach(chunk=>{
+    const url = `https://www.google.com/maps/dir/${chunk.join("/")}`;
+    window.open(url, "_blank");
+  });
 }
 
 function renderOrderTabs(){
