@@ -322,7 +322,9 @@
         <div style="display:flex; gap:10px; flex-wrap:wrap;">
           <button class="btn btn-outline" onclick="toggleAgentManage()" id="agentToggleBtn">🛵 Manage agents</button>
           <button class="btn btn-outline" onclick="toggleMaterialSummary()" id="materialToggleBtn">📋 Total material needed</button>
-          <button class="btn btn-outline" onclick="viewAllOrdersMap()">🗺️ View all orders on map (points only)</button>
+          <button class="btn btn-outline" onclick="viewAllOrdersMap()">🗺️ Quick map (points only)</button>
+          <button class="btn btn-outline" onclick="exportLocationsForGoogleMyMaps()">📍 Export points for Google Maps</button>
+          <button class="btn btn-outline" onclick="openGoogleMapsRoute()">🧭 Open route in Google Maps</button>
           <button class="btn btn-outline" onclick="exportOrdersCsv()">⬇️ Export all orders (CSV)</button>
           <button class="btn btn-outline" onclick="printPendingOrders()">🖨️ Print all pending orders</button>
         </div>
@@ -856,6 +858,54 @@ function renderMaterialSummary(){
 
 // Opens a single map (in a new tab) with a pin for every pending order's delivery location —
 // just markers, no route/directions. Built with Leaflet + OpenStreetMap so it works with no API key.
+// Exports every pending order's saved location as a KML file. Import this into Google My Maps
+// (mymaps.google.com) to see every delivery plotted as its own pin on a real Google Map —
+// no auto-drawn route, so you can plan the route yourself.
+function exportLocationsForGoogleMyMaps(){
+  const pendingDocs = allOrderDocs.filter(d => {
+    const status = d.data().status || "New";
+    return status !== "Delivered" && status !== "Cancelled";
+  });
+  const withLocation = pendingDocs
+    .map(d => d.data())
+    .filter(o => o.lat && o.lng);
+
+  if(withLocation.length === 0){
+    alert("None of the pending orders have a saved location yet.");
+    return;
+  }
+
+  const escapeXml = (val) => String(val ?? "")
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+
+  const placemarks = withLocation.map(o => `
+    <Placemark>
+      <name>${escapeXml(o.name || "Order")}${o.orderNumber ? " · " + escapeXml(o.orderNumber) : ""}</name>
+      <description>${escapeXml([o.phone, o.address, o.area, o.slot, o.total ? "₹"+o.total : ""].filter(Boolean).join(" | "))}</description>
+      <Point><coordinates>${o.lng},${o.lat},0</coordinates></Point>
+    </Placemark>`).join("");
+
+  const kml = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>Weekend Veggies — Pending Deliveries</name>
+    ${placemarks}
+  </Document>
+</kml>`;
+
+  const blob = new Blob([kml], { type: "application/vnd.google-earth.kml+xml" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `weekend-veggies-delivery-points-${new Date().toISOString().slice(0,10)}.kml`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  alert(`Downloaded ${withLocation.length} location(s) as a KML file.\n\nTo see them on Google Maps:\n1. Go to mymaps.google.com\n2. Click "Create a new map"\n3. Click "Import" and choose this KML file\n4. Every pending order will appear as a pin — plan your route however you like.`);
+}
+
 function viewAllOrdersMap(){
   const pendingDocs = allOrderDocs.filter(d => {
     const status = d.data().status || "New";
@@ -933,6 +983,54 @@ ${'</scr' + 'ipt>'}
   win.document.open();
   win.document.write(html);
   win.document.close();
+}
+
+// Opens real Google Maps with all pending delivery locations chained into a driving route
+// (turn-by-turn navigation). Uses Google's free directions URL format — no API key needed.
+function openGoogleMapsRoute(){
+  const pendingDocs = allOrderDocs.filter(d => {
+    const status = d.data().status || "New";
+    return status !== "Delivered" && status !== "Cancelled";
+  });
+  const withLocation = pendingDocs
+    .map(d => d.data())
+    .filter(o => o.lat && o.lng);
+
+  if(withLocation.length === 0){
+    alert("None of the pending orders have a saved location yet.");
+    return;
+  }
+  if(withLocation.length === 1){
+    const o = withLocation[0];
+    window.open(`https://www.google.com/maps/dir/?api=1&destination=${o.lat},${o.lng}&travelmode=driving`, "_blank");
+    return;
+  }
+
+  // Google Maps' free directions URL supports an origin, a destination, and roughly
+  // 9 waypoints in between (about 10-11 stops total). Beyond that we split into batches
+  // and open multiple tabs, since each is a separate full route.
+  const MAX_STOPS_PER_ROUTE = 10;
+  const coords = withLocation.map(o => `${o.lat},${o.lng}`);
+
+  const chunks = [];
+  for(let i = 0; i < coords.length; i += MAX_STOPS_PER_ROUTE){
+    chunks.push(coords.slice(i, i + MAX_STOPS_PER_ROUTE));
+  }
+
+  if(chunks.length > 1){
+    if(!confirm(`You have ${coords.length} pending delivery locations. Google Maps can chain about ${MAX_STOPS_PER_ROUTE} stops per route, so this will open ${chunks.length} route tabs to cover all of them. Continue?`)) return;
+  }
+
+  chunks.forEach(chunk=>{
+    const origin = chunk[0];
+    const destination = chunk[chunk.length - 1];
+    const waypoints = chunk.slice(1, -1);
+    let url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=driving`;
+    if(waypoints.length > 0){
+      url += `&waypoints=${waypoints.join("|")}`;
+    }
+    window.open(url, "_blank");
+  });
 }
 
 function renderOrderTabs(){
