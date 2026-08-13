@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Deliveries — Weekend Veggies</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --paper: #FBF6EC;
+    --paper-dim: #F3EBDA;
+    --ink: #143B22;
+    --ink-soft: #52684F;
+    --green: #5FA82A;
+    --green-dark: #1F5C2E;
+    --tomato: #C1442D;
+    --carrot: #DB8A1F;
+    --line: rgba(36,48,31,0.14);
+    --card: #FFFFFF;
+    --shadow: 0 2px 0 rgba(36,48,31,0.06), 0 10px 24px -12px rgba(36,48,31,0.25);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper); color:var(--ink); min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  h1,.display{font-family:Georgia,"Times New Roman",serif; font-weight:700; letter-spacing:-0.01em;}
+  button{font-family:inherit; cursor:pointer;}
+
+  .login-wrap{min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px;}
+  .login-card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:32px 28px; width:100%; max-width:340px; box-shadow:var(--shadow); text-align:center;
+  }
+  .login-card img{width:56px; height:56px; border-radius:50%; object-fit:cover; margin-bottom:8px;}
+  .login-card h1{font-size:20px; margin:0 0 4px;}
+  .login-card p{font-size:13px; color:var(--ink-soft); margin:0 0 18px;}
+  .login-card label{display:block; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-soft); margin:12px 0 6px; text-align:left;}
+  .login-card input{width:100%; padding:11px 12px; border:1.5px solid var(--line); border-radius:9px; font-size:14px;}
+  .login-btn{
+    width:100%; margin-top:18px; background:var(--green); color:#fff; border:none;
+    padding:12px; border-radius:9px; font-weight:700; font-size:14px;
+  }
+  .login-error{color:var(--tomato); font-size:12.5px; margin-top:10px; display:none;}
+
+  .topbar{
+    background:var(--ink); color:var(--paper); padding:14px 20px;
+    display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:10;
+  }
+  .topbar .display{font-size:17px;}
+  .topbar .sub{font-size:11.5px; color:#C9CDBE;}
+  .logout-btn{
+    background:none; border:1px solid rgba(255,255,255,0.3); color:var(--paper);
+    padding:7px 12px; border-radius:999px; font-size:12px; font-weight:600;
+  }
+
+  .filter-row{display:flex; gap:8px; padding:14px 16px 0; max-width:600px; margin:0 auto;}
+  .filter-chip{
+    flex:1; text-align:center; padding:8px; border-radius:9px; font-size:12.5px; font-weight:700;
+    border:1.5px solid var(--line); background:var(--card); color:var(--ink-soft);
+  }
+  .filter-chip.active{background:var(--ink); color:var(--paper); border-color:var(--ink);}
+
+  .wrap{max-width:600px; margin:0 auto; padding:14px 16px 60px;}
+  .empty-state{
+    text-align:center; color:var(--ink-soft); padding:50px 20px; font-size:14px;
+    background:var(--card); border-radius:14px; border:1px solid var(--line);
+  }
+  .order-card{
+    background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:16px 18px; margin-bottom:14px; box-shadow:var(--shadow);
+  }
+  .order-cust{font-weight:700; font-size:16px;}
+  .order-no{font-size:12px; color:var(--ink-soft); margin-bottom:6px;}
+  .order-meta{font-size:13px; color:var(--ink-soft); margin:3px 0;}
+  .order-items{margin:10px 0; padding:10px 0; border-top:1px dashed var(--line); border-bottom:1px dashed var(--line);}
+  .item-row{display:flex; justify-content:space-between; font-size:13px; padding:2px 0;}
+  .total-row{display:flex; justify-content:space-between; font-weight:700; font-size:15px; margin:8px 0;}
+  .badge{display:inline-block; padding:4px 10px; border-radius:999px; font-size:11px; font-weight:700; margin-bottom:10px;}
+  .badge-New{background:#FDEDEA; color:var(--tomato);}
+  .badge-Confirmed{background:#FFF3DE; color:var(--carrot);}
+  .badge-OutforDelivery{background:#E4EEFB; color:#2A5DAB;}
+  .badge-Delivered{background:#E8F3DE; color:var(--green-dark);}
+  .action-row{display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;}
+  .action-btn{
+    flex:1; min-width:110px; text-align:center; text-decoration:none;
+    padding:10px; border-radius:9px; font-weight:700; font-size:13px; border:none;
+  }
+  .action-call{background:var(--paper-dim); color:var(--ink);}
+  .action-map{background:#2A5DAB; color:#fff;}
+  .action-next{background:var(--green); color:#fff;}
+  .action-next:disabled{background:#c9d6ce; color:#8a978f;}
+</style>
+</head>
+<body>
+
+<div class="login-wrap" id="loginWrap">
+  <div class="login-card">
+    <img src="logo.png" alt="Weekend Veggies logo">
+    <h1 class="display">My Deliveries</h1>
+    <p>Delivery agent login</p>
+    <label for="loginEmail">Email</label>
+    <input id="loginEmail" type="email" placeholder="you@example.com">
+    <label for="loginPass">Password</label>
+    <input id="loginPass" type="password" placeholder="Your password">
+    <button class="login-btn" onclick="doLogin()">Log in</button>
+    <div class="login-error" id="loginError"></div>
+  </div>
+</div>
+
+<div id="dashboard" style="display:none;">
+  <div class="topbar">
+    <div>
+      <div class="display" id="agentGreeting">My Deliveries</div>
+      <div class="sub" id="agentSub"></div>
+    </div>
+    <button class="logout-btn" onclick="doLogout()">Log out</button>
+  </div>
+
+  <div class="filter-row">
+    <div class="filter-chip active" id="filterActiveBtn" onclick="setFilter('active')">Today's Deliveries</div>
+    <div class="filter-chip" id="filterDoneBtn" onclick="setFilter('done')">Completed</div>
+  </div>
+
+  <div class="wrap">
+    <div id="ordersList"></div>
+  </div>
+</div>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyBCLdD-JtXvvpNwvVOQcylQwv-AfU8nMQw",
+  authDomain: "weekend-veggies-f2b49.firebaseapp.com",
+  projectId: "weekend-veggies-f2b49",
+  storageBucket: "weekend-veggies-f2b49.firebasestorage.app",
+  messagingSenderId: "883961164204",
+  appId: "1:883961164204:web:fdac6fdc6d1dcbcd440a09"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+let myAgentName = null;
+let ordersUnsub = null;
+let allMyOrders = [];
+let currentFilter = "active"; // "active" or "done"
+
+function doLogin(){
+  const email = document.getElementById("loginEmail").value.trim();
+  const pass = document.getElementById("loginPass").value;
+  const errEl = document.getElementById("loginError");
+  errEl.style.display = "none";
+  auth.signInWithEmailAndPassword(email, pass).catch(()=>{
+    errEl.textContent = "Login failed — check your email and password.";
+    errEl.style.display = "block";
+  });
+}
+function doLogout(){ auth.signOut(); }
+
+auth.onAuthStateChanged(async user=>{
+  if(user){
+    document.getElementById("loginWrap").style.display = "none";
+    document.getElementById("dashboard").style.display = "block";
+    await findMyAgentProfile(user.email);
+  } else {
+    document.getElementById("loginWrap").style.display = "flex";
+    document.getElementById("dashboard").style.display = "none";
+    if(ordersUnsub) ordersUnsub();
+    myAgentName = null;
+  }
+});
+
+async function findMyAgentProfile(email){
+  const list = document.getElementById("ordersList");
+  try{
+    const snap = await db.collection("agents").where("email", "==", (email||"").toLowerCase()).limit(1).get();
+    if(snap.empty){
+      list.innerHTML = `<div class="empty-state">Your login isn't linked to a delivery agent profile yet. Ask your admin to add you in the dashboard's "Manage agents" section using this exact email: <strong>${email}</strong></div>`;
+      return;
+    }
+    myAgentName = snap.docs[0].data().name;
+    document.getElementById("agentGreeting").textContent = `Hi, ${myAgentName} 🛵`;
+    document.getElementById("agentSub").textContent = "Your assigned deliveries";
+    attachOrdersListener();
+  } catch(err){
+    console.error(err);
+    list.innerHTML = `<div class="empty-state">Couldn't load your profile — please try logging in again.</div>`;
+  }
+}
+
+function attachOrdersListener(){
+  ordersUnsub = db.collection("orders").where("agent", "==", myAgentName).onSnapshot(snap=>{
+    allMyOrders = snap.docs;
+    renderOrders();
+  }, err=>{
+    console.error(err);
+    document.getElementById("ordersList").innerHTML = `<div class="empty-state">Couldn't load your orders — please check your connection.</div>`;
+  });
+}
+
+function setFilter(f){
+  currentFilter = f;
+  document.getElementById("filterActiveBtn").classList.toggle("active", f==="active");
+  document.getElementById("filterDoneBtn").classList.toggle("active", f==="done");
+  renderOrders();
+}
+
+function renderOrders(){
+  const list = document.getElementById("ordersList");
+  const filtered = allMyOrders.filter(d=>{
+    const status = d.data().status || "New";
+    return currentFilter === "done" ? status === "Delivered" : status !== "Delivered";
+  });
+
+  if(filtered.length === 0){
+    list.innerHTML = `<div class="empty-state">${currentFilter === "done" ? "No completed deliveries yet." : "No deliveries assigned to you right now."}</div>`;
+    return;
+  }
+
+  // Sort: Out for Delivery first, then Confirmed, then New
+  const order = { "Out for Delivery":0, "Confirmed":1, "New":2, "Delivered":3 };
+  filtered.sort((a,b) => (order[a.data().status||"New"] ?? 9) - (order[b.data().status||"New"] ?? 9));
+
+  list.innerHTML = filtered.map(doc=>{
+    const o = doc.data();
+    const status = o.status || "New";
+    const orderNo = o.orderNumber || doc.id;
+    const itemsHtml = (o.items||[]).map(it=>`
+      <div class="item-row"><span>${it.name}${it.te ? " / "+it.te : ""} × ${it.qty} ${it.unit}</span><span>₹${it.lineTotal}</span></div>
+    `).join("");
+    const mapUrl = (o.lat && o.lng)
+      ? `https://www.google.com/maps/dir/?api=1&destination=${o.lat},${o.lng}`
+      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(o.address || "")}`;
+    const nextStatus = status === "Confirmed" || status === "New" ? "Out for Delivery" : (status === "Out for Delivery" ? "Delivered" : null);
+
+    return `
+    <div class="order-card">
+      <span class="badge badge-${status.replace(/\s/g,'')}">${status}</span>
+      <div class="order-no">Order ${orderNo} · ${o.slot || ""}</div>
+      <div class="order-cust">${o.name || "—"}</div>
+      <div class="order-meta">📍 ${o.address || "—"}</div>
+      <div class="order-meta">${o.area || ""}</div>
+      <div class="order-items">${itemsHtml}</div>
+      <div class="total-row"><span>Total</span><span>₹${o.total || 0}</span></div>
+      ${o.note ? `<div class="order-meta">📝 ${o.note}</div>` : ""}
+      <div class="action-row">
+        <a class="action-btn action-call" href="tel:${o.phone || ''}">📞 Call</a>
+        <a class="action-btn action-map" href="${mapUrl}" target="_blank">🗺️ Navigate</a>
+        ${nextStatus ? `<button class="action-btn action-next" onclick="markNext('${doc.id}','${nextStatus}')">✅ Mark ${nextStatus}</button>` : ""}
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function markNext(orderId, status){
+  db.collection("orders").doc(orderId).update({ status }).catch(err=>{
+    alert("Couldn't update status — check your connection and try again.");
+    console.error(err);
+  });
+}
+</script>
+</body>
+</html>
