@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#143B22">
-<title>Weekend Veggies — Order Online</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Weekend Veggies — Fresh Veggies, Happy Families</title>
+<!-- Firebase (database for customers & orders) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <style>
@@ -17,305 +17,392 @@
     --green-dark: #1F5C2E;
     --tomato: #C1442D;
     --carrot: #DB8A1F;
+    --brinjal: #6B4C6E;
+    --leaf: #6DBF2C;
     --line: rgba(36,48,31,0.14);
     --card: #FFFFFF;
     --shadow: 0 2px 0 rgba(36,48,31,0.06), 0 10px 24px -12px rgba(36,48,31,0.25);
   }
-  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
   body{
-    background:var(--paper); color:var(--ink);
+    background:var(--paper);
+    color:var(--ink);
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-    padding-bottom:env(safe-area-inset-bottom);
+    -webkit-font-smoothing:antialiased;
   }
-  h1,h2,h3,.display{font-family:Georgia,"Times New Roman",serif; font-weight:700; letter-spacing:-0.01em;}
-  button{font-family:inherit; cursor:pointer;}
-  input,textarea,select{font-family:inherit;}
+  h1,h2,h3,.display{
+    font-family:Georgia,"Times New Roman",serif;
+    font-weight:700;
+    letter-spacing:-0.01em;
+  }
+  .eyebrow{
+    font-size:11px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    font-weight:600;
+  }
   a{color:inherit;}
-  .wrap{max-width:480px; margin:0 auto; position:relative; min-height:100vh; background:var(--paper);}
+  button{font-family:inherit;}
 
-  /* ---- Top bar ---- */
+  /* ---------- Header ---------- */
   .topbar{
-    position:sticky; top:0; z-index:20; background:var(--ink); color:var(--paper);
-    padding:12px 16px; display:flex; align-items:center; justify-content:space-between;
+    position:sticky; top:0; z-index:40;
+    background:var(--ink);
+    color:var(--paper);
+    padding:12px 20px;
+    display:flex; align-items:center; justify-content:space-between;
+    box-shadow:0 4px 14px rgba(0,0,0,0.15);
   }
-  .topbar .brand{display:flex; align-items:center; gap:10px;}
-  .topbar img{width:34px; height:34px; border-radius:50%; object-fit:cover;}
-  .topbar .display{font-size:18px;}
-  .topbar .sub{font-size:10.5px; opacity:0.7; margin-top:1px;}
+  .brand{display:flex; align-items:center; gap:10px;}
+  .brand-mark{
+    width:40px;height:40px;border-radius:50%;
+    overflow:hidden; flex-shrink:0;
+    box-shadow:0 2px 6px rgba(0,0,0,0.2);
+  }
+  .brand-mark img{width:100%; height:100%; object-fit:cover; display:block;}
+  .brand-name{font-size:19px; line-height:1;}
+  .brand-tag{font-size:10.5px; color:#C9CDBE; letter-spacing:0.08em; text-transform:uppercase; margin-top:2px;}
   .cart-btn{
-    position:relative; background:rgba(255,255,255,0.12); border:none; color:var(--paper);
-    width:40px; height:40px; border-radius:50%; font-size:18px; display:flex; align-items:center; justify-content:center;
+    background:var(--paper); color:var(--ink);
+    border:none; border-radius:999px;
+    padding:9px 16px; font-weight:700; font-size:14px;
+    display:flex; align-items:center; gap:8px;
+    cursor:pointer;
+    box-shadow:var(--shadow);
   }
-  .cart-badge{
-    position:absolute; top:-4px; right:-4px; background:var(--tomato); color:#fff;
-    font-size:10.5px; font-weight:700; min-width:18px; height:18px; border-radius:999px;
-    display:flex; align-items:center; justify-content:center; padding:0 4px;
+  .cart-count{
+    background:var(--tomato); color:#fff;
+    border-radius:999px; min-width:20px; height:20px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:11.5px; padding:0 5px;
   }
 
-  /* ---- Closed banner ---- */
-  .closed-banner{
-    display:none; background:#FDEDEA; border-bottom:1.5px solid var(--tomato);
-    color:var(--tomato); padding:12px 16px; font-size:13px; font-weight:700; text-align:center;
+  /* ---------- Hero (market signboard) ---------- */
+  .hero{
+    background:
+      repeating-linear-gradient(115deg, rgba(255,255,255,0.035) 0 2px, transparent 2px 26px),
+      linear-gradient(180deg, var(--green-dark), var(--green));
+    color:var(--paper);
+    padding:40px 20px 46px;
+    position:relative;
+    overflow:hidden;
+  }
+  .hero-inner{max-width:900px; margin:0 auto; position:relative; z-index:2;}
+  .hero h1{font-size:clamp(28px,5vw,42px); margin:6px 0 10px; line-height:1.05;}
+  .hero p{max-width:480px; color:#DCE6D3; font-size:15px; line-height:1.55; margin:0 0 18px;}
+  .hero-badges{display:flex; flex-wrap:wrap; gap:8px;}
+  .hero-badge{
+    background:rgba(255,255,255,0.12);
+    border:1px solid rgba(255,255,255,0.25);
+    padding:6px 12px; border-radius:999px; font-size:12.5px;
+    display:flex; align-items:center; gap:6px;
+  }
+  .peel{
+    position:absolute; right:-40px; top:-30px; font-size:220px;
+    opacity:0.11; transform:rotate(12deg); z-index:1; user-select:none;
   }
 
-  /* ---- Search + chips ---- */
-  .search-bar{position:sticky; top:58px; z-index:19; background:var(--paper); padding:12px 16px 8px;}
-  .search-input{
-    width:100%; padding:11px 14px; border:1.5px solid var(--line); border-radius:10px;
-    font-size:14px; background:var(--card);
-  }
+  /* ---------- Category chips ---------- */
   .chip-row{
-    display:flex; gap:8px; overflow-x:auto; padding:8px 16px 12px; scrollbar-width:none;
-    position:sticky; top:110px; z-index:19; background:var(--paper);
+    max-width:1100px; margin:22px auto 0; padding:0 20px;
+    display:flex; gap:10px; overflow-x:auto; scrollbar-width:none;
   }
   .chip-row::-webkit-scrollbar{display:none;}
   .chip{
-    flex-shrink:0; border:1.5px solid var(--line); background:var(--card); color:var(--ink-soft);
-    padding:7px 14px; border-radius:999px; font-weight:700; font-size:12.5px; white-space:nowrap;
+    flex:0 0 auto;
+    border:1.5px solid var(--line);
+    background:var(--card);
+    padding:8px 15px; border-radius:999px;
+    font-size:13.5px; font-weight:600; cursor:pointer;
+    display:flex; align-items:center; gap:7px;
+    color:var(--ink-soft);
+    transition:all .15s ease;
   }
-  .chip.active{background:var(--green); color:#fff; border-color:var(--green);}
+  .chip.active{
+    background:var(--ink); color:var(--paper); border-color:var(--ink);
+  }
+  .dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
 
-  /* ---- Product grid ---- */
-  .grid{display:grid; grid-template-columns:1fr 1fr; gap:12px; padding:4px 16px 100px;}
-  .pcard{
-    background:var(--card); border:1px solid var(--line); border-radius:14px;
-    padding:12px; box-shadow:var(--shadow); display:flex; flex-direction:column;
+  /* ---------- Product grid ---------- */
+  .grid{
+    max-width:1100px; margin:0 auto; padding:24px 20px 80px;
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr));
+    gap:18px;
   }
-  .pcard.oos{opacity:0.5;}
-  .pcard .photo{
-    width:100%; aspect-ratio:1; border-radius:10px; background:var(--paper-dim);
-    display:flex; align-items:center; justify-content:center; font-size:34px; margin-bottom:8px;
-    overflow:hidden;
+  .card{
+    background:var(--card);
+    border-radius:14px;
+    padding:16px 14px 14px;
+    position:relative;
+    box-shadow:var(--shadow);
+    border:1px solid var(--line);
+    display:flex; flex-direction:column;
   }
-  .pcard .photo img{width:100%; height:100%; object-fit:cover;}
-  .pcard .pname{font-weight:700; font-size:13.5px; line-height:1.25;}
-  .pcard .pte{font-size:11px; color:var(--ink-soft); margin-bottom:6px;}
-  .pcard .pprice{font-weight:700; font-size:14px; font-family:Georgia,serif; margin-top:auto;}
-  .pcard .pprice .unit{font-size:11px; color:var(--ink-soft); font-weight:400; font-family:inherit;}
-  .oos-label{font-size:10.5px; font-weight:700; color:var(--tomato); margin-top:4px;}
+  .card-top{
+    height:3px; margin:-16px -14px 12px;
+    border-radius:14px 14px 0 0;
+  }
+  .tag{
+    position:absolute; top:-10px; right:10px;
+    background:var(--paper); border:1.5px solid var(--ink);
+    color:var(--ink); font-weight:700; font-size:12.5px;
+    padding:4px 9px; border-radius:6px;
+    transform:rotate(4deg);
+    font-family:Georgia,serif;
+    box-shadow:2px 3px 0 rgba(36,48,31,0.12);
+  }
+  .tag::after{
+    content:""; position:absolute; top:-4px; left:50%;
+    width:6px;height:6px; margin-left:-3px;
+    background:var(--ink); border-radius:50%;
+  }
+  .veg-icon{font-size:38px; margin-bottom:6px;}
+  .veg-photo{
+    width:100%; height:92px; object-fit:cover;
+    border-radius:9px; margin-bottom:8px; display:block;
+    background:var(--paper-dim);
+  }
+  .veg-name{font-size:16px; font-weight:700; margin:0 0 2px;}
+  .veg-name-te{font-size:13px; color:var(--ink-soft); margin:0 0 2px;}
+  .veg-unit{font-size:12px; color:var(--ink-soft); margin-bottom:12px;}
+  .unit-toggle{display:flex; gap:6px; margin-bottom:10px;}
+  .unit-pill{
+    border:1.5px solid var(--line); background:var(--paper-dim); color:var(--ink-soft);
+    padding:4px 10px; border-radius:999px; font-size:11.5px; font-weight:700; cursor:pointer;
+  }
+  .unit-pill.active{background:var(--green); color:#fff; border-color:var(--green);}
+  .qty-row{
+    margin-top:auto;
+    display:flex; align-items:center; justify-content:space-between;
+    gap:8px;
+  }
+  .stepper{
+    display:flex; align-items:center; border:1.5px solid var(--line);
+    border-radius:9px; overflow:hidden;
+  }
+  .stepper button{
+    width:28px;height:30px; border:none; background:var(--paper-dim);
+    font-size:16px; cursor:pointer; color:var(--ink);
+  }
+  .stepper span{min-width:24px; text-align:center; font-weight:700; font-size:13.5px; padding:0 4px; white-space:nowrap;}
+  .add-btn{
+    background:var(--green); color:#fff; border:none;
+    border-radius:9px; padding:7px 13px; font-weight:700;
+    font-size:13px; cursor:pointer; white-space:nowrap;
+  }
+  .add-btn:active{transform:scale(0.97);}
 
-  .qty-controls{display:flex; align-items:center; gap:6px; margin-top:8px;}
-  .qty-btn{
-    width:30px; height:30px; border-radius:8px; border:1.5px solid var(--line); background:var(--card);
-    font-size:16px; font-weight:700; display:flex; align-items:center; justify-content:center; color:var(--ink);
-  }
-  .qty-btn.add{background:var(--green); color:#fff; border-color:var(--green); flex:1; font-size:13px; gap:4px;}
-  .qty-val{flex:1; text-align:center; font-weight:700; font-size:14px;}
-  .half-toggle{
-    margin-top:6px; font-size:10.5px; color:var(--ink-soft); display:flex; align-items:center; gap:5px; cursor:pointer;
-  }
-  .half-toggle input{width:13px; height:13px;}
-
-  .empty-state{text-align:center; color:var(--ink-soft); padding:60px 20px; font-size:14px; grid-column:1/-1;}
-
-  /* ---- Floating cart bar ---- */
-  .cart-bar{
-    display:none; position:fixed; bottom:16px; left:16px; right:16px; max-width:448px; margin:0 auto;
-    background:var(--ink); color:var(--paper); border-radius:14px; padding:14px 16px;
-    align-items:center; justify-content:space-between; box-shadow:0 10px 30px rgba(0,0,0,0.3); z-index:25;
-  }
-  .cart-bar .left{font-size:13px;}
-  .cart-bar .left .n{font-weight:700; font-size:15px; font-family:Georgia,serif;}
-  .cart-bar .right{background:var(--green); color:#fff; border:none; padding:9px 16px; border-radius:9px; font-weight:700; font-size:13.5px;}
-
-  /* ---- Overlays (cart / checkout / confirmation / my-orders) ---- */
+  /* ---------- Cart drawer ---------- */
   .overlay{
-    display:none; position:fixed; inset:0; background:var(--paper); z-index:40; overflow-y:auto;
+    position:fixed; inset:0; background:rgba(36,48,31,0.45);
+    opacity:0; pointer-events:none; transition:opacity .25s ease; z-index:49;
   }
-  .overlay.show{display:block;}
-  .overlay-inner{max-width:480px; margin:0 auto; padding-bottom:40px;}
-  .overlay-top{
-    position:sticky; top:0; background:var(--ink); color:var(--paper); padding:14px 16px;
-    display:flex; align-items:center; gap:12px; z-index:5;
+  .overlay.show{opacity:1; pointer-events:auto;}
+  .drawer{
+    position:fixed; top:0; right:0; height:100%; width:min(420px,100%);
+    background:var(--paper); z-index:50;
+    transform:translateX(100%); transition:transform .3s ease;
+    display:flex; flex-direction:column;
+    box-shadow:-10px 0 30px rgba(0,0,0,0.2);
   }
-  .back-btn{background:rgba(255,255,255,0.12); border:none; color:var(--paper); width:34px; height:34px; border-radius:50%; font-size:16px;}
-  .overlay-top .display{font-size:17px;}
-
+  .drawer.show{transform:translateX(0);}
+  .drawer-head{
+    padding:18px 20px; background:var(--ink); color:var(--paper);
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .drawer-head h2{margin:0; font-size:19px;}
+  .close-btn{background:none;border:none;color:var(--paper);font-size:22px;cursor:pointer;line-height:1;}
+  .drawer-body{flex:1; overflow-y:auto; padding:16px 20px;}
+  .empty-cart{text-align:center; color:var(--ink-soft); padding:60px 10px; font-size:14px;}
   .cart-item{
-    display:flex; gap:10px; padding:14px 16px; border-bottom:1px dashed var(--line); align-items:center;
+    display:flex; align-items:center; gap:10px;
+    padding:12px 0; border-bottom:1px solid var(--line);
+    flex-wrap:wrap;
   }
-  .cart-item .ci-icon{width:44px; height:44px; border-radius:10px; background:var(--paper-dim); display:flex; align-items:center; justify-content:center; font-size:22px; flex-shrink:0; overflow:hidden;}
-  .cart-item .ci-icon img{width:100%; height:100%; object-fit:cover;}
-  .cart-item .ci-info{flex:1; min-width:0;}
-  .cart-item .ci-name{font-weight:700; font-size:13.5px;}
-  .cart-item .ci-sub{font-size:11.5px; color:var(--ink-soft);}
-  .cart-item .ci-price{font-weight:700; font-size:13.5px; white-space:nowrap;}
-  .remove-btn{background:none; border:none; color:var(--tomato); font-size:12px; font-weight:700; padding:4px;}
-
-  .summary-row{display:flex; justify-content:space-between; padding:10px 16px; font-size:14px;}
-  .summary-row.total{font-weight:700; font-size:17px; font-family:Georgia,serif; border-top:1px solid var(--line); margin-top:6px; padding-top:14px;}
-
-  .cta-btn{
-    display:block; width:calc(100% - 32px); margin:16px; background:var(--green); color:#fff;
-    border:none; padding:14px; border-radius:11px; font-weight:700; font-size:15px; text-align:center;
+  .cart-item .veg-icon{font-size:26px; margin:0;}
+  .ci-info{flex:1; min-width:110px;}
+  .ci-name{font-weight:700; font-size:14px;}
+  .ci-price{font-size:12.5px; color:var(--ink-soft);}
+  .cart-item .stepper{flex-shrink:0;}
+  .cart-delete-btn{
+    background:none; border:none; color:var(--tomato); font-size:16px;
+    cursor:pointer; padding:6px; flex-shrink:0;
   }
-  .cta-btn:disabled{background:#B9C8B4; color:#fff;}
-  .cta-btn.outline{background:var(--card); color:var(--ink); border:1.5px solid var(--line);}
 
-  .form-section{padding:14px 16px;}
-  .form-section label{display:block; font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--ink-soft); margin:12px 0 6px;}
-  .form-section label:first-child{margin-top:0;}
-  .form-section input, .form-section select, .form-section textarea{
-    width:100%; padding:12px 13px; border:1.5px solid var(--line); border-radius:10px; font-size:14.5px; background:var(--card);
+  .form-block{margin-top:18px; padding-top:16px; border-top:1.5px dashed var(--line);}
+  .form-block label{
+    display:block; font-size:12px; font-weight:700; text-transform:uppercase;
+    letter-spacing:0.05em; color:var(--ink-soft); margin:12px 0 6px;
   }
-  .form-section textarea{resize:vertical; min-height:64px;}
-  .loc-btn{
-    width:100%; padding:12px; border-radius:10px; border:1.5px dashed var(--green); background:#F1F8EA;
-    color:var(--green-dark); font-weight:700; font-size:13.5px; margin-top:8px;
+  .form-block input, .form-block select, .form-block textarea{
+    width:100%; padding:10px 12px; border:1.5px solid var(--line);
+    border-radius:9px; font-size:14px; background:#fff; color:var(--ink);
+    font-family:inherit;
   }
-  .loc-status{font-size:12px; color:var(--ink-soft); margin-top:6px;}
-  .loc-status.ok{color:var(--green-dark); font-weight:600;}
-  .field-error{color:var(--tomato); font-size:11.5px; margin-top:5px; display:none;}
+  .form-block textarea{resize:vertical; min-height:52px;}
+  .phone-row{display:flex; gap:8px; align-items:flex-end;}
+  .phone-row input{flex:1;}
+  .check-btn{
+    background:var(--ink); color:var(--paper); border:none;
+    border-radius:9px; padding:0 14px; height:41px; font-weight:700;
+    font-size:13px; cursor:pointer; white-space:nowrap;
+  }
+  .check-btn:disabled{opacity:0.5; cursor:not-allowed;}
+  .cust-status{
+    font-size:12.5px; border-radius:8px; padding:8px 10px; margin-top:10px;
+    display:none;
+  }
+  .cust-status.show{display:block;}
+  .cust-status.found{background:#E8F3DE; color:var(--green-dark);}
+  .cust-status.new{background:var(--paper-dim); color:var(--ink-soft);}
 
-  .confirm-wrap{text-align:center; padding:60px 24px;}
-  .confirm-check{width:72px; height:72px; border-radius:50%; background:var(--green); color:#fff; font-size:34px; display:flex; align-items:center; justify-content:center; margin:0 auto 18px;}
-  .confirm-wrap h2{font-size:22px; margin:0 0 8px;}
-  .confirm-wrap p{color:var(--ink-soft); font-size:14px; margin:0 0 4px;}
-  .confirm-orderno{font-weight:700; font-family:Georgia,serif; font-size:19px; margin:14px 0;}
+  .drawer-foot{
+    padding:16px 20px 20px; border-top:1px solid var(--line); background:var(--paper);
+  }
+  .total-row{
+    display:flex; justify-content:space-between; align-items:baseline;
+    margin-bottom:12px;
+  }
+  .total-row .label{font-size:13px; color:var(--ink-soft);}
+  .total-row .amount{font-size:22px; font-weight:700; font-family:Georgia,serif;}
+  .whatsapp-btn{
+    width:100%; background:#25D366; color:#0b2b16; border:none;
+    padding:13px; border-radius:11px; font-weight:700; font-size:15px;
+    cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;
+    box-shadow:0 6px 0 #128C41;
+  }
+  .whatsapp-btn:active{transform:translateY(3px); box-shadow:0 3px 0 #128C41;}
+  .whatsapp-btn:disabled{background:#c9d6ce; color:#8a978f; box-shadow:none; cursor:not-allowed;}
+  .hint{font-size:11.5px; color:var(--ink-soft); text-align:center; margin-top:10px; line-height:1.5;}
 
-  .order-badge{display:inline-block; padding:4px 10px; border-radius:999px; font-size:11px; font-weight:700;}
-  .badge-New{background:#FDEDEA; color:var(--tomato);}
-  .badge-Confirmed{background:#FFF3DE; color:var(--carrot);}
-  .badge-OutforDelivery{background:#E4EEFB; color:#2A5DAB;}
-  .badge-Delivered{background:#E8F3DE; color:var(--green-dark);}
-  .badge-Cancelled{background:#EDEDED; color:#6B6B6B;}
+  footer{
+    text-align:center; padding:26px 20px 40px; color:var(--ink-soft); font-size:12.5px;
+  }
+  @media (max-width:480px){
+    .grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px;}
+    .hero{padding:30px 16px 36px;}
+    .peel{display:none;}
+    .unit-pill{padding:3px 8px; font-size:11px;}
+    .add-btn{padding:7px 10px; font-size:12px;}
+  }
 
-  .myorder-card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin:0 16px 14px; box-shadow:var(--shadow);}
-  .myorder-head{display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px;}
-  .myorder-no{font-weight:700; font-size:14px;}
-  .myorder-meta{font-size:12px; color:var(--ink-soft); margin-top:2px;}
-  .myorder-total{font-weight:700; font-family:Georgia,serif; font-size:16px;}
+  /* ---------- Closed-for-orders screen ---------- */
+  .closed-screen{
+    min-height:80vh; display:flex; align-items:center; justify-content:center;
+    padding:40px 20px; text-align:center;
+    background:
+      repeating-linear-gradient(115deg, rgba(255,255,255,0.035) 0 2px, transparent 2px 26px),
+      linear-gradient(180deg, var(--green-dark), var(--green));
+  }
+  .closed-card{max-width:460px;}
+  .closed-icon{font-size:52px; margin-bottom:14px;}
+  .closed-highlight{
+    display:inline-block; background:#FFF3DE; color:var(--carrot);
+    font-weight:700; padding:2px 8px; border-radius:6px;
+  }
+  .closed-card h1{color:#fff; font-size:clamp(22px,5vw,30px); margin:0 0 14px; line-height:1.2;}
+  .closed-card p{color:#DCE6D3; font-size:15px; line-height:1.6; margin:0 0 10px;}
+  .closed-brand{margin-top:26px; padding-top:20px; border-top:1px solid rgba(255,255,255,0.25);}
+  .closed-brand .name{color:#fff; font-weight:700; font-size:16px; font-family:Georgia,serif;}
+  .closed-brand .tag{color:#C7E896; font-size:13px; margin-top:4px;}
+  .closed-wa-btn{
+    display:inline-flex; align-items:center; gap:8px; margin-top:18px;
+    background:#25D366; color:#0b2b16; text-decoration:none;
+    padding:11px 20px; border-radius:999px; font-weight:700; font-size:14px;
+  }
 </style>
 </head>
 <body>
-<div class="wrap">
 
-  <!-- Top bar -->
-  <div class="topbar">
-    <div class="brand">
-      <img src="logo.png" alt="Weekend Veggies logo">
-      <div>
-        <div class="display">Weekend Veggies</div>
-        <div class="sub">Fresh veggies, delivered on weekends</div>
-      </div>
-    </div>
-    <div style="display:flex; gap:8px;">
-      <button class="cart-btn" onclick="openMyOrders()" title="My orders">👤</button>
-      <button class="cart-btn" onclick="openCart()" title="Cart">
-        🛒<span class="cart-badge" id="cartBadge" style="display:none;">0</span>
-      </button>
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-mark"><img src="logo.png" alt="Weekend Veggies logo"></div>
+    <div>
+      <div class="brand-name display">Weekend Veggies</div>
+      <div class="brand-tag">Weekly market at your doorstep</div>
     </div>
   </div>
+  <button class="cart-btn" id="cartBtnTop" onclick="openCart()">
+    🧺 Cart <span class="cart-count" id="cartCount">0</span>
+  </button>
+</div>
 
-  <div class="closed-banner" id="closedBanner">🚫 We're closed to new orders right now — check back soon!</div>
-
-  <!-- Search + categories -->
-  <div class="search-bar">
-    <input class="search-input" id="searchInput" placeholder="🔍 Search vegetables..." oninput="renderProducts()">
-  </div>
-  <div class="chip-row" id="chipRow"></div>
-
-  <!-- Product grid -->
-  <div class="grid" id="productGrid"></div>
-
-  <!-- Floating cart bar -->
-  <div class="cart-bar" id="cartBar">
-    <div class="left"><span class="n" id="cartBarCount">0</span> items · ₹<span id="cartBarTotal">0</span></div>
-    <button class="right" onclick="openCart()">View cart →</button>
-  </div>
-
-  <!-- ===== Cart overlay ===== -->
-  <div class="overlay" id="cartOverlay">
-    <div class="overlay-inner">
-      <div class="overlay-top">
-        <button class="back-btn" onclick="closeOverlay('cartOverlay')">←</button>
-        <div class="display">Your Cart</div>
-      </div>
-      <div id="cartItemsArea"></div>
-      <div id="cartSummaryArea"></div>
-      <button class="cta-btn" id="checkoutBtn" onclick="openCheckout()">Proceed to checkout</button>
+<div class="closed-screen" id="closedScreen" style="display:none;">
+  <div class="closed-card">
+    <div class="closed-icon">🔒</div>
+    <h1>This Week's Orders Are Loading!</h1>
+    <p>Thank you for your support. Orders for this week have now been Opensoon.</p>
+    <p>🥬 Fresh vegetable orders will reopen on <span class="closed-highlight">Wednesday</span>.</p>
+    <p>Stay tuned and place your order early to reserve your fresh Vegetables!</p>
+    <div class="closed-brand">
+      <div class="name">📍 Weekend Veggies</div>
+      <div class="tag">Fresh from the market to your doorstep.</div>
+      <a id="closedWaLink" class="closed-wa-btn" href="#" target="_blank">💬 Message us on WhatsApp</a>
     </div>
   </div>
+</div>
 
-  <!-- ===== Checkout overlay ===== -->
-  <div class="overlay" id="checkoutOverlay">
-    <div class="overlay-inner">
-      <div class="overlay-top">
-        <button class="back-btn" onclick="closeOverlay('checkoutOverlay')">←</button>
-        <div class="display">Checkout</div>
-      </div>
-      <div class="form-section">
-        <label for="custName">Your name</label>
-        <input id="custName" placeholder="e.g. Priya Reddy">
-        <div class="field-error" id="errName">Please enter your name.</div>
+<div id="shopContent">
 
-        <label for="custPhone">Phone number</label>
-        <input id="custPhone" type="tel" placeholder="10-digit mobile number" maxlength="10">
-        <div class="field-error" id="errPhone">Please enter a valid 10-digit phone number.</div>
-
-        <label for="custAddress">Delivery address</label>
-        <textarea id="custAddress" placeholder="House/flat no, street, landmark"></textarea>
-        <div class="field-error" id="errAddress">Please enter your address.</div>
-
-        <label for="custArea">Area / Zone</label>
-        <input id="custArea" placeholder="e.g. Zone 1 — ECIL">
-        <div class="field-error" id="errArea">Please enter your delivery area.</div>
-
-        <label for="custSlot">Delivery slot</label>
-        <select id="custSlot">
-          <option value="Saturday Morning">Saturday Morning</option>
-          <option value="Saturday Evening">Saturday Evening</option>
-          <option value="Sunday Morning">Sunday Morning</option>
-          <option value="Sunday Evening">Sunday Evening</option>
-        </select>
-
-        <label for="custNote">Note for the delivery (optional)</label>
-        <textarea id="custNote" placeholder="e.g. Ring the bell twice, leave with security, etc."></textarea>
-
-        <button class="loc-btn" id="locBtn" onclick="shareLocation()">📍 Share my location (helps us find you faster)</button>
-        <div class="loc-status" id="locStatus">Location not shared yet — optional but recommended.</div>
-      </div>
-      <div id="checkoutSummaryArea"></div>
-      <button class="cta-btn" id="placeOrderBtn" onclick="placeOrder()">Place order</button>
+<div class="hero">
+  <span class="peel">🥕</span>
+  <div class="hero-inner">
+    <span class="eyebrow" style="color:#C7E896;">This week's basket</span>
+    <h1>Order midweek,<br>enjoy it on the weekend.</h1>
+    <p>We take orders Wednesday to Friday and deliver only on Saturdays and Sundays — fresh baskets picked just for the weekend. Fill your basket below and send the order straight to our WhatsApp.</p>
+    <div class="hero-badges">
+      <span class="hero-badge" id="orderWindowBadge">🗓️ Order Wed–Fri</span>
+      <span class="hero-badge">🚚 Delivered Sat &amp; Sun only</span>
+      <span class="hero-badge">💬 Confirm on WhatsApp</span>
     </div>
   </div>
+</div>
 
-  <!-- ===== Confirmation overlay ===== -->
-  <div class="overlay" id="confirmOverlay">
-    <div class="overlay-inner">
-      <div class="confirm-wrap">
-        <div class="confirm-check">✓</div>
-        <h2>Order placed!</h2>
-        <p>Thank you — we've got your order.</p>
-        <div class="confirm-orderno" id="confirmOrderNo">WV-0000</div>
-        <p id="confirmTotal"></p>
-      </div>
-      <button class="cta-btn" onclick="startNewOrder()">Order again</button>
-      <button class="cta-btn outline" onclick="closeOverlay('confirmOverlay'); openMyOrders();">View my orders</button>
-    </div>
-  </div>
+<div class="chip-row" id="chipRow"></div>
+<div class="grid" id="grid"></div>
 
-  <!-- ===== My Orders overlay ===== -->
-  <div class="overlay" id="myOrdersOverlay">
-    <div class="overlay-inner">
-      <div class="overlay-top">
-        <button class="back-btn" onclick="closeOverlay('myOrdersOverlay')">←</button>
-        <div class="display">My Orders</div>
-      </div>
-      <div class="form-section">
-        <label for="lookupPhone">Enter your phone number</label>
-        <input id="lookupPhone" type="tel" placeholder="10-digit mobile number" maxlength="10">
-        <button class="cta-btn" style="margin:14px 0 0; width:100%;" onclick="findMyOrders()">Find my orders</button>
-      </div>
-      <div id="myOrdersResults"></div>
-    </div>
+<footer>
+  Weekend Veggies · Orders taken Wednesday–Friday, delivered Saturday &amp; Sunday · Update the WhatsApp number in the code before going live
+</footer>
+
+<div class="overlay" id="overlay" onclick="closeCart()"></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-head">
+    <h2>Your basket</h2>
+    <button class="close-btn" onclick="closeCart()">✕</button>
   </div>
+  <div class="drawer-body" id="drawerBody"></div>
+  <div class="drawer-foot">
+    <div class="total-row">
+      <span class="label">Total</span>
+      <span class="amount" id="totalAmount">₹0</span>
+    </div>
+    <button class="whatsapp-btn" id="waBtn" onclick="sendToWhatsApp()">
+      ✅ Send order on WhatsApp
+    </button>
+    <div class="hint">You'll be taken to WhatsApp with your order pre-filled. Nothing is charged here — payment is confirmed by our team on chat.</div>
+  </div>
+</div>
 
 </div>
 
 <script>
-/* Paste the SAME firebaseConfig used in your admin dashboard */
+/* ================= CONFIG — edit these for your business ================= */
+const WHATSAPP_NUMBER = "919494178554"; // country code + number, no + or spaces
+const ORDER_WINDOW = "Wednesday – Friday"; // when you accept orders
+const DELIVERY_AREAS = [
+  "Zone 1 — ECIL", "Zone 2 — AS Rao Nagar", "Zone 3 — Malkajgiri",
+  "Zone 4 — Sainikpuri", "Zone 5 — Other"
+];
+// Delivery only happens Saturday & Sunday — pick a day + time window
+const DELIVERY_SLOTS = [
+  "Saturday",
+  "Sunday"
+];
+
+// Paste the firebaseConfig object Firebase gave you when you registered your web app:
 const firebaseConfig = {
   apiKey: "AIzaSyBCLdD-JtXvvpNwvVOQcylQwv-AfU8nMQw",
   authDomain: "weekend-veggies-f2b49.firebaseapp.com",
@@ -326,466 +413,490 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
+/* =========================================================================== */
 
-const CATEGORY_NAMES = {
-  all:"All", leafy:"Leafy Greens", root:"Root Veg", gourd:"Gourds & Beans",
-  exotic:"Exotic", salad:"Salad & Kitchen"
-};
+const CATEGORIES = [
+  { id:"leafy",  name:"Leafy Greens", color:"var(--leaf)" },
+  { id:"root",   name:"Root Veg",     color:"var(--carrot)" },
+  { id:"gourd",  name:"Gourds & Beans", color:"var(--green)" },
+  { id:"exotic", name:"Exotic",       color:"var(--brinjal)" },
+  { id:"salad",  name:"Salad & Kitchen", color:"var(--tomato)" },
+];
 
-let allProducts = [];
-let activeCategory = "all";
-let cart = {};          // productId -> { product, qty, unit: "full"|"half" }
-let sharedLat = null;
-let sharedLng = null;
-let ordersClosed = false;
+// SEED_PRODUCTS is only used once, by the admin dashboard's "Load starter list"
+// button, to pre-fill your products in Firestore. After that, all editing happens
+// in the admin dashboard's Products tab — not in this file.
+const SEED_PRODUCTS = [
+  { name:"Tomato", te:"టమాటా", icon:"🍅", cat:"salad", price:40, unit:"kg" },
+  { name:"Onion", te:"ఉల్లిపాయ", icon:"🧅", cat:"root", price:35, unit:"kg" },
+  { name:"Potato", te:"బంగాళదుంప", icon:"🥔", cat:"root", price:28, unit:"kg" },
+  { name:"Carrot", te:"క్యారెట్", icon:"🥕", cat:"root", price:45, unit:"kg" },
+  { name:"Spinach", te:"పాలకూర", icon:"🥬", cat:"leafy", price:25, unit:"bunch" },
+  { name:"Coriander", te:"కొత్తిమీర", icon:"🌿", cat:"leafy", price:10, unit:"bunch" },
+  { name:"Fenugreek Leaves", te:"మెంతికూర", icon:"🍀", cat:"leafy", price:20, unit:"bunch" },
+  { name:"Brinjal", te:"వంకాయ", icon:"🍆", cat:"exotic", price:38, unit:"kg" },
+  { name:"Capsicum", te:"క్యాప్సికం", icon:"🫑", cat:"salad", price:55, unit:"kg" },
+  { name:"Cucumber", te:"దోసకాయ", icon:"🥒", cat:"salad", price:30, unit:"kg" },
+  { name:"Cauliflower", te:"కాలీఫ్లవర్", icon:"🥦", cat:"gourd", price:35, unit:"pc" },
+  { name:"Broccoli", te:"బ్రోకలీ", icon:"🥦", cat:"exotic", price:80, unit:"kg" },
+  { name:"Beans", te:"చిక్కుడు కాయలు", icon:"🫛", cat:"gourd", price:48, unit:"kg" },
+  { name:"Bottle Gourd", te:"సొరకాయ", icon:"🥒", cat:"gourd", price:32, unit:"pc" },
+  { name:"Ginger", te:"అల్లం", icon:"🫚", cat:"exotic", price:90, unit:"250g" },
+  { name:"Garlic", te:"వెల్లుల్లి", icon:"🧄", cat:"exotic", price:70, unit:"250g" },
+  { name:"Green Chilli", te:"పచ్చిమిర్చి", icon:"🌶️", cat:"salad", price:15, unit:"250g" },
+  { name:"Lemon", te:"నిమ్మకాయ", icon:"🍋", cat:"salad", price:8, unit:"pc" },
+  { name:"Lady's Finger", te:"బెండకాయ", icon:"🫛", cat:"gourd", price:40, unit:"kg" },
+  { name:"Cabbage", te:"క్యాబేజీ", icon:"🥬", cat:"leafy", price:25, unit:"kg" },
+  { name:"Beetroot", te:"బీట్‌రూట్", icon:"🟣", cat:"root", price:35, unit:"kg" },
+  { name:"Ridge Gourd", te:"బీరకాయ", icon:"🥒", cat:"gourd", price:30, unit:"kg" },
+  { name:"Snake Gourd", te:"పొట్లకాయ", icon:"🥒", cat:"gourd", price:28, unit:"kg" },
+  { name:"Bitter Gourd", te:"కాకరకాయ", icon:"🥒", cat:"gourd", price:35, unit:"kg" },
+  { name:"Ivy Gourd", te:"దొండకాయ", icon:"🫒", cat:"gourd", price:40, unit:"kg" },
+  { name:"Drumstick", te:"మునగకాయ", icon:"🌿", cat:"exotic", price:20, unit:"pc" },
+  { name:"Raw Banana", te:"అరటికాయ", icon:"🍌", cat:"exotic", price:30, unit:"pc" },
+  { name:"Cluster Beans", te:"గోరుచిక్కుడు", icon:"🫛", cat:"gourd", price:45, unit:"kg" },
+  { name:"French Beans", te:"బీన్స్", icon:"🫛", cat:"gourd", price:45, unit:"kg" },
+  { name:"Sweet Potato", te:"చిలగడదుంప", icon:"🍠", cat:"root", price:40, unit:"kg" },
+  { name:"Taro Root", te:"చామదుంప", icon:"🥔", cat:"root", price:45, unit:"kg" },
+  { name:"Amaranth Green", te:"తోటకూర", icon:"🥬", cat:"leafy", price:15, unit:"bunch" },
+  { name:"Sorrel Leaves", te:"గోంగూర", icon:"🌿", cat:"leafy", price:20, unit:"bunch" },
+  { name:"Curry Leaves", te:"కరివేపాకు", icon:"🌿", cat:"leafy", price:5, unit:"bunch" },
+  { name:"Mint Leaves", te:"పుదీనా", icon:"🌿", cat:"leafy", price:10, unit:"bunch" },
+  { name:"Malabar Spinach", te:"బచ్చలికూర", icon:"🥬", cat:"leafy", price:20, unit:"bunch" },
+  { name:"Spring Onion", te:"ఉల్లికాడలు", icon:"🌱", cat:"leafy", price:15, unit:"bunch" },
+  { name:"Colocasia Leaves", te:"చామ ఆకులు", icon:"🥬", cat:"leafy", price:15, unit:"bunch" },
+  { name:"Moringa Leaves", te:"మునగాకు", icon:"🌿", cat:"leafy", price:15, unit:"bunch" },
+  { name:"Roselle Leaves", te:"పులిచింతాకు", icon:"🌿", cat:"leafy", price:20, unit:"bunch" },
+  { name:"Lettuce", te:"లెట్యూస్", icon:"🥬", cat:"salad", price:40, unit:"pc" },
+];
 
-// ---------- Cart persistence (this is a real customer-facing site, not a Claude artifact,
-// so normal browser storage is used so a cart survives a refresh) ----------
-function loadCart(){
-  try{
-    const raw = localStorage.getItem("wv_cart");
-    cart = raw ? JSON.parse(raw) : {};
-  } catch(e){ cart = {}; }
-}
-function saveCart(){
-  try{ localStorage.setItem("wv_cart", JSON.stringify(cart)); } catch(e){}
-}
+const catColor = id => (CATEGORIES.find(c=>c.id===id)||{}).color || "var(--green)";
+const catName  = id => (CATEGORIES.find(c=>c.id===id)||{}).name || "";
 
-// ---------- Firestore listeners ----------
-db.collection("products").orderBy("name").onSnapshot(snap=>{
-  allProducts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  renderChips();
-  renderProducts();
-  refreshCartAgainstCatalog();
-}, err=>{
-  document.getElementById("productGrid").innerHTML =
-    `<div class="empty-state">⚠️ Couldn't load the shop. Please check your connection and refresh.</div>`;
-  console.error(err);
-});
+let activeCat = "all";
+let cart = {}; // "productId::unit" -> qty
+let PRODUCTS = []; // populated live from Firestore below
+let productsLoaded = false;
+let capturedLocation = null; // { lat, lng } once customer shares location
+let selectedUnitFor = {}; // productId -> currently chosen unit (for items with a 2nd size)
 
-db.collection("settings").doc("config").onSnapshot(doc=>{
-  ordersClosed = doc.exists && doc.data().ordersClosed === true;
-  document.getElementById("closedBanner").style.display = ordersClosed ? "block" : "none";
-  updateCheckoutButtonState();
-}, err=> console.error(err));
-
-// ---------- Rendering: categories ----------
-function renderChips(){
-  const cats = ["all", ...new Set(allProducts.map(p => p.cat).filter(Boolean))];
-  const row = document.getElementById("chipRow");
-  row.innerHTML = cats.map(c => `
-    <button class="chip ${c===activeCategory?'active':''}" onclick="setCategory('${c}')">${CATEGORY_NAMES[c] || c}</button>
-  `).join("");
-}
-function setCategory(c){
-  activeCategory = c;
-  renderChips();
-  renderProducts();
-}
-
-// ---------- Rendering: product grid ----------
-function renderProducts(){
-  const q = (document.getElementById("searchInput").value || "").trim().toLowerCase();
-  let list = allProducts.filter(p => activeCategory === "all" || p.cat === activeCategory);
-  if(q){
-    list = list.filter(p =>
-      (p.name||"").toLowerCase().includes(q) || (p.te||"").includes(q)
-    );
+function unitOptionsFor(p){
+  const opts = [{ unit: p.unit, price: p.price }];
+  if(p.halfKgOption){
+    opts.push({ unit: "500g", price: Math.round((p.price || 0) / 2) });
   }
-  const grid = document.getElementById("productGrid");
-  if(list.length === 0){
-    grid.innerHTML = `<div class="empty-state">No vegetables found${q ? ' for "'+q+'"' : ""}.</div>`;
+  return opts;
+}
+function priceForUnit(p, unit){
+  const opts = unitOptionsFor(p);
+  const match = opts.find(o => o.unit === unit);
+  return match ? match.price : p.price;
+}
+function selectUnit(productId, unit){
+  selectedUnitFor[productId] = unit;
+  renderGrid();
+}
+function cartKeyFor(productId, unit){ return productId + "::" + unit; }
+function parseCartKey(key){
+  const idx = key.lastIndexOf("::");
+  return { id: key.slice(0, idx), unit: key.slice(idx+2) };
+}
+
+function useMyLocation(){
+  const statusEl = document.getElementById("locStatus");
+  if(!navigator.geolocation){
+    statusEl.className = "cust-status show new";
+    statusEl.textContent = "Location isn't supported on this device — you can still order without it.";
     return;
   }
-  grid.innerHTML = list.map(productCardHtml).join("");
+  statusEl.className = "cust-status show new";
+  statusEl.textContent = "Getting your precise location... (this can take a few seconds)";
+  navigator.geolocation.getCurrentPosition(
+    pos=>{
+      capturedLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      const acc = Math.round(pos.coords.accuracy);
+      statusEl.className = "cust-status show found";
+      if(acc > 100){
+        statusEl.textContent = `📍 Location captured, but accuracy is only ~${acc}m. For a more precise pin: use your phone (not a laptop), make sure Location/GPS is turned on in your phone's settings, and try tapping the button again while outdoors or near a window.`;
+      } else {
+        statusEl.textContent = `📍 Location captured (accurate to ~${acc}m). Great!`;
+      }
+    },
+    err=>{
+      statusEl.className = "cust-status show new";
+      statusEl.textContent = "Couldn't get your location (you can still order without it).";
+    },
+    { enableHighAccuracy:true, timeout:15000, maximumAge:0 }
+  );
 }
 
-function productCardHtml(p){
-  const outOfStock = p.inStock === false;
-  const fullEntry = cart[p.id + "|full"];
-  const halfEntry = cart[p.id + "|half"];
-  const halfPrice = Math.round((p.price||0)/2);
-
-  const photoHtml = p.photo
-    ? `<img src="${p.photo}" alt="${p.name}">`
-    : (p.icon || "🥬");
-
-  let bodyHtml;
-  if(outOfStock){
-    bodyHtml = `<div class="oos-label">Out of stock</div>`;
-  } else if(fullEntry){
-    bodyHtml = `
-      <div class="qty-controls">
-        <button class="qty-btn" onclick="changeQty('${p.id}','full',-1)">−</button>
-        <span class="qty-val">${fullEntry.qty}</span>
-        <button class="qty-btn" onclick="changeQty('${p.id}','full',1)">+</button>
-      </div>`;
-  } else {
-    bodyHtml = `<button class="qty-btn add" onclick="changeQty('${p.id}','full',1)">+ Add</button>`;
-  }
-
-  let halfHtml = "";
-  if(!outOfStock && p.halfKgOption){
-    if(halfEntry){
-      halfHtml = `
-        <div class="qty-controls">
-          <span style="font-size:11px; color:var(--ink-soft); flex:1;">500g</span>
-          <button class="qty-btn" onclick="changeQty('${p.id}','half',-1)">−</button>
-          <span class="qty-val">${halfEntry.qty}</span>
-          <button class="qty-btn" onclick="changeQty('${p.id}','half',1)">+</button>
-        </div>`;
-    } else {
-      halfHtml = `
-        <div class="qty-controls">
-          <button class="qty-btn add" style="font-size:11.5px;" onclick="changeQty('${p.id}','half',1)">+ 500g · ₹${halfPrice}</button>
-        </div>`;
-    }
-  }
-
-  return `
-  <div class="pcard ${outOfStock ? 'oos' : ''}">
-    <div class="photo">${photoHtml}</div>
-    <div class="pname">${p.name}</div>
-    <div class="pte">${p.te || ""}</div>
-    <div class="pprice">₹${p.price} <span class="unit">/ ${p.unit || 'kg'}</span></div>
-    ${bodyHtml}
-    ${halfHtml}
-  </div>`;
-}
-
-// ---------- Cart logic ----------
-function changeQty(productId, unitType, delta){
-  const product = allProducts.find(p => p.id === productId);
-  if(!product) return;
-  const key = productId + "|" + unitType;
-  const existing = cart[key];
-  const newQty = (existing ? existing.qty : 0) + delta;
-
-  if(newQty <= 0){
-    delete cart[key];
-  } else {
-    cart[key] = { productId, unitType, qty: newQty };
-  }
-  saveCart();
-  renderProducts();
-  updateCartBar();
-  if(document.getElementById("cartOverlay").classList.contains("show")) renderCartOverlay();
-}
-
-function refreshCartAgainstCatalog(){
-  // Drop cart lines for products that no longer exist or went out of stock
-  let changed = false;
-  Object.keys(cart).forEach(key=>{
-    const [productId] = key.split("|");
-    const product = allProducts.find(p => p.id === productId);
-    if(!product || product.inStock === false){
-      delete cart[key];
-      changed = true;
-    }
+async function getNextOrderNumber(){
+  const counterRef = db.collection("meta").doc("orderCounter");
+  const next = await db.runTransaction(async (tx)=>{
+    const doc = await tx.get(counterRef);
+    const current = doc.exists ? (doc.data().count || 0) : 0;
+    const n = current + 1;
+    tx.set(counterRef, { count: n }, { merge:true });
+    return n;
   });
-  if(changed) saveCart();
-  updateCartBar();
-  renderProducts();
+  return "WV-" + String(next).padStart(4,"0");
 }
 
-function cartLines(){
-  return Object.values(cart).map(entry=>{
-    const product = allProducts.find(p => p.id === entry.productId);
-    if(!product) return null;
-    const isHalf = entry.unitType === "half";
-    const unitPrice = isHalf ? Math.round((product.price||0)/2) : (product.price||0);
-    const unitLabel = isHalf ? "500g" : (product.unit || "kg");
-    return {
-      key: entry.productId + "|" + entry.unitType,
-      productId: entry.productId,
-      unitType: entry.unitType,
-      name: product.name,
-      te: product.te || "",
-      icon: product.icon,
-      photo: product.photo,
-      qty: entry.qty,
-      unit: unitLabel,
-      unitPrice,
-      lineTotal: unitPrice * entry.qty
-    };
-  }).filter(Boolean);
+// Ordering is open Wednesday, Thursday, Friday — closing at ORDER_CUTOFF_HOUR (24hr) on Friday
+const ORDER_CUTOFF_HOUR = 21; // 9 PM — change this if you want a different cutoff time
+
+function formatDuration(ms){
+  const totalMinutes = Math.max(0, Math.floor(ms/60000));
+  const days = Math.floor(totalMinutes / (60*24));
+  const hours = Math.floor((totalMinutes % (60*24)) / 60);
+  const mins = totalMinutes % 60;
+  if(days > 0) return `${days}d ${hours}h`;
+  if(hours > 0) return `${hours}h ${mins}m`;
+  return `${mins}m`;
+}
+
+function updateOrderWindowBadge(){
+  const el = document.getElementById("orderWindowBadge");
+  if(!el) return;
+  const now = new Date();
+  const day = now.getDay(); // 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
+  const cutoffToday = new Date(now); cutoffToday.setHours(ORDER_CUTOFF_HOUR,0,0,0);
+  const cutoffLabel = ORDER_CUTOFF_HOUR > 12 ? (ORDER_CUTOFF_HOUR-12)+" PM" : ORDER_CUTOFF_HOUR+" AM";
+
+  if(day === 5 && now < cutoffToday){
+    el.textContent = `🗓️ Ordering closes in ${formatDuration(cutoffToday - now)}`;
+  } else if(day === 3 || day === 4){
+    el.textContent = `🗓️ Ordering open — closes Friday ${cutoffLabel}`;
+  } else {
+    let daysUntilWed = (3 - day + 7) % 7;
+    if(daysUntilWed === 0) daysUntilWed = 7;
+    const nextWed = new Date(now);
+    nextWed.setDate(now.getDate() + daysUntilWed);
+    nextWed.setHours(0,0,0,0);
+    el.textContent = `🗓️ Ordering opens in ${formatDuration(nextWed - now)} (Wed)`;
+  }
+}
+updateOrderWindowBadge();
+setInterval(updateOrderWindowBadge, 60000);
+
+function renderChips(){
+  const row = document.getElementById("chipRow");
+  const all = [{id:"all", name:"All Vegetables", color:"var(--ink)"}, ...CATEGORIES];
+  row.innerHTML = all.map(c => `
+    <div class="chip ${activeCat===c.id?'active':''}" onclick="setCategory('${c.id}')">
+      <span class="dot" style="background:${c.color}"></span>${c.name}
+    </div>
+  `).join("");
+}
+function setCategory(id){ activeCat = id; renderChips(); renderGrid(); }
+
+function renderGrid(){
+  const grid = document.getElementById("grid");
+  if(!productsLoaded){
+    grid.innerHTML = `<div style="grid-column:1/-1; text-align:center; color:var(--ink-soft); padding:40px;">Loading this week's vegetables...</div>`;
+    return;
+  }
+  if(PRODUCTS.length === 0){
+    grid.innerHTML = `<div style="grid-column:1/-1; text-align:center; color:var(--ink-soft); padding:40px;">No vegetables listed yet — check back soon!</div>`;
+    return;
+  }
+  let list = activeCat==="all" ? PRODUCTS.slice() : PRODUCTS.filter(p=>p.cat===activeCat);
+  if(activeCat === "all"){
+    // Group by category in the order defined in CATEGORIES (Leafy Greens first),
+    // then alphabetically by name within each category.
+    list.sort((a,b)=>{
+      const rankA = CATEGORIES.findIndex(c=>c.id===a.cat);
+      const rankB = CATEGORIES.findIndex(c=>c.id===b.cat);
+      const diff = (rankA===-1?CATEGORIES.length:rankA) - (rankB===-1?CATEGORIES.length:rankB);
+      if(diff !== 0) return diff;
+      return (a.name||"").localeCompare(b.name||"");
+    });
+  }
+  grid.innerHTML = list.map(p => {
+    const opts = unitOptionsFor(p);
+    const hasTwoSizes = opts.length > 1;
+    const selectedUnit = selectedUnitFor[p.id] || p.unit;
+    const activeOpt = opts.find(o => o.unit === selectedUnit) || opts[0];
+    const cartKey = cartKeyFor(p.id, activeOpt.unit);
+    const qty = cart[cartKey] || 0;
+    return `
+    <div class="card">
+      <div class="card-top" style="background:${catColor(p.cat)}"></div>
+      <div class="tag">₹${activeOpt.price}/${activeOpt.unit}</div>
+      ${p.photo
+        ? `<img class="veg-photo" src="${p.photo}" alt="${p.name}" onerror="this.outerHTML='<div class=&quot;veg-icon&quot;>${p.icon}</div>'">`
+        : `<div class="veg-icon">${p.icon}</div>`}
+      <div class="veg-name">${p.name}</div>
+      ${p.te ? `<div class="veg-name-te">${p.te}</div>` : ""}
+      <div class="veg-unit">${catName(p.cat)}</div>
+      ${hasTwoSizes ? `
+      <div class="unit-toggle">
+        ${opts.map(o => `<button class="unit-pill ${o.unit===activeOpt.unit?'active':''}" onclick="selectUnit('${p.id}','${o.unit}')">${o.unit}</button>`).join("")}
+      </div>` : ""}
+      <div class="qty-row">
+        <div class="stepper">
+          <button onclick="changeQty('${cartKey}',-1)">−</button>
+          <span>${qty}</span>
+          <button onclick="changeQty('${cartKey}',1)">+</button>
+        </div>
+        <button class="add-btn" onclick="changeQty('${cartKey}',1)">${qty>0?'Added':'Add'}</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function changeQty(id, delta){
+  const current = cart[id] || 0;
+  const next = Math.max(0, current + delta);
+  if(next === 0){ delete cart[id]; } else { cart[id] = next; }
+  renderGrid();
+  renderCartCount();
+  renderDrawer();
+}
+
+function removeCartItem(key){
+  delete cart[key];
+  renderGrid();
+  renderCartCount();
+  renderDrawer();
+}
+
+function renderCartCount(){
+  const count = Object.values(cart).reduce((a,b)=>a+b,0);
+  document.getElementById("cartCount").textContent = count;
 }
 
 function cartTotal(){
-  return cartLines().reduce((sum, l) => sum + l.lineTotal, 0);
-}
-function cartCount(){
-  return cartLines().reduce((sum, l) => sum + l.qty, 0);
-}
-
-function updateCartBar(){
-  const count = cartCount();
-  const total = cartTotal();
-  const bar = document.getElementById("cartBar");
-  const badge = document.getElementById("cartBadge");
-  bar.style.display = count > 0 ? "flex" : "none";
-  badge.style.display = count > 0 ? "flex" : "none";
-  badge.textContent = count;
-  document.getElementById("cartBarCount").textContent = count;
-  document.getElementById("cartBarTotal").textContent = total;
+  return Object.entries(cart).reduce((sum,[key,qty])=>{
+    const { id, unit } = parseCartKey(key);
+    const p = PRODUCTS.find(x=>x.id==id);
+    return sum + (p ? priceForUnit(p, unit)*qty : 0);
+  },0);
 }
 
-// ---------- Overlays ----------
-function openOverlay(id){ document.getElementById(id).classList.add("show"); window.scrollTo(0,0); }
-function closeOverlay(id){ document.getElementById(id).classList.remove("show"); }
+function renderDrawer(){
+  const body = document.getElementById("drawerBody");
+  const entries = Object.entries(cart);
+  const waBtn = document.getElementById("waBtn");
+
+  if(entries.length === 0){
+    body.innerHTML = `<div class="empty-cart">Your basket is empty.<br>Add some vegetables to get started 🥕</div>`;
+    document.getElementById("totalAmount").textContent = "₹0";
+    waBtn.disabled = true;
+    return;
+  }
+  waBtn.disabled = false;
+
+  let itemsHtml = entries.map(([key,qty])=>{
+    const { id, unit } = parseCartKey(key);
+    const p = PRODUCTS.find(x=>x.id==id);
+    if(!p) return "";
+    const price = priceForUnit(p, unit);
+    return `
+    <div class="cart-item">
+      <div class="veg-icon">${p.icon}</div>
+      <div class="ci-info">
+        <div class="ci-name">${p.name}${p.te ? " / "+p.te : ""} · ${unit}</div>
+        <div class="ci-price">₹${price} each · ₹${price*qty}</div>
+      </div>
+      <div class="stepper">
+        <button onclick="changeQty('${key}',-1)">−</button>
+        <span>${qty}</span>
+        <button onclick="changeQty('${key}',1)">+</button>
+      </div>
+      <button class="cart-delete-btn" onclick="removeCartItem('${key}')" title="Remove item">🗑️</button>
+    </div>`;
+  }).join("");
+
+  const areaOptions = DELIVERY_AREAS.map(a=>`<option value="${a}">${a}</option>`).join("");
+  const slotOptions = DELIVERY_SLOTS.map(s=>`<option value="${s}">${s}</option>`).join("");
+
+  itemsHtml += `
+    <div class="form-block">
+      <span class="eyebrow">Delivery details</span>
+      <label for="custPhone">Phone number</label>
+      <div class="phone-row">
+        <input id="custPhone" type="tel" placeholder="10-digit mobile number" maxlength="10">
+        <button class="check-btn" id="checkBtn" onclick="lookupCustomer()">🔍 Check</button>
+      </div>
+      <div class="cust-status" id="custStatus"></div>
+      <label for="custName">Your name</label>
+      <input id="custName" type="text" placeholder="e.g. Priya Sharma">
+      <label for="custAddress">Delivery address</label>
+      <textarea id="custAddress" placeholder="House no., street, landmark..."></textarea>
+      <label style="margin:14px 0 6px;">Share your location <span style="color:var(--tomato);">*required</span></label>
+      <button type="button" class="check-btn" style="width:100%; height:auto; padding:10px;" onclick="useMyLocation()">📍 Share my location (required to place order)</button>
+      <div class="cust-status" id="locStatus"></div>
+      <label for="custArea">Delivery area</label>
+      <select id="custArea">${areaOptions}</select>
+      <label for="custSlot">Delivery day &amp; slot (Sat/Sun only)</label>
+      <select id="custSlot">${slotOptions}</select>
+      <label for="custNote">Order notes (optional)</label>
+      <textarea id="custNote" placeholder="Gate code, preferred ripeness, anything else..."></textarea>
+    </div>
+  `;
+
+  body.innerHTML = itemsHtml;
+  document.getElementById("totalAmount").textContent = "₹" + cartTotal();
+}
 
 function openCart(){
-  renderCartOverlay();
-  openOverlay("cartOverlay");
+  document.getElementById("drawer").classList.add("show");
+  document.getElementById("overlay").classList.add("show");
+  renderDrawer();
+}
+function closeCart(){
+  document.getElementById("drawer").classList.remove("show");
+  document.getElementById("overlay").classList.remove("show");
 }
 
-function renderCartOverlay(){
-  const lines = cartLines();
-  const itemsArea = document.getElementById("cartItemsArea");
-  const summaryArea = document.getElementById("cartSummaryArea");
-  const checkoutBtn = document.getElementById("checkoutBtn");
-
-  if(lines.length === 0){
-    itemsArea.innerHTML = `<div class="empty-state">Your cart is empty. Add some fresh veggies! 🥬</div>`;
-    summaryArea.innerHTML = "";
-    checkoutBtn.style.display = "none";
+async function lookupCustomer(){
+  const phone = document.getElementById("custPhone").value.trim();
+  const statusEl = document.getElementById("custStatus");
+  if(phone.length < 10){
+    statusEl.className = "cust-status show new";
+    statusEl.textContent = "Enter your full 10-digit number, then tap Check.";
     return;
   }
-  checkoutBtn.style.display = "block";
-
-  itemsArea.innerHTML = lines.map(l => `
-    <div class="cart-item">
-      <div class="ci-icon">${l.photo ? `<img src="${l.photo}" alt="">` : (l.icon || "🥬")}</div>
-      <div class="ci-info">
-        <div class="ci-name">${l.name}${l.te ? " / "+l.te : ""}</div>
-        <div class="ci-sub">${l.qty} × ${l.unit} · ₹${l.unitPrice} each</div>
-        <button class="remove-btn" onclick="removeLine('${l.key}')">Remove</button>
-      </div>
-      <div class="ci-price">₹${l.lineTotal}</div>
-    </div>
-  `).join("");
-
-  summaryArea.innerHTML = `
-    <div class="summary-row total"><span>Total</span><span>₹${cartTotal()}</span></div>
-  `;
-}
-
-function removeLine(key){
-  delete cart[key];
-  saveCart();
-  renderCartOverlay();
-  updateCartBar();
-  renderProducts();
-}
-
-function openCheckout(){
-  if(cartCount() === 0) return;
-  // Prefill from last order if remembered
+  const btn = document.getElementById("checkBtn");
+  btn.disabled = true; btn.textContent = "Checking...";
   try{
-    const saved = JSON.parse(localStorage.getItem("wv_customer") || "{}");
-    if(saved.name) document.getElementById("custName").value = saved.name;
-    if(saved.phone) document.getElementById("custPhone").value = saved.phone;
-    if(saved.address) document.getElementById("custAddress").value = saved.address;
-    if(saved.area) document.getElementById("custArea").value = saved.area;
-  } catch(e){}
-  renderCheckoutSummary();
-  updateCheckoutButtonState();
-  openOverlay("checkoutOverlay");
-}
-
-function renderCheckoutSummary(){
-  const area = document.getElementById("checkoutSummaryArea");
-  area.innerHTML = `
-    <div class="summary-row"><span>${cartCount()} item${cartCount()===1?"":"s"}</span><span>₹${cartTotal()}</span></div>
-    <div class="summary-row total"><span>Total to pay</span><span>₹${cartTotal()}</span></div>
-  `;
-}
-
-function updateCheckoutButtonState(){
-  const btn = document.getElementById("placeOrderBtn");
-  if(!btn) return;
-  btn.disabled = ordersClosed;
-  btn.textContent = ordersClosed ? "We're closed right now" : "Place order";
-}
-
-function shareLocation(){
-  const statusEl = document.getElementById("locStatus");
-  if(!navigator.geolocation){
-    statusEl.textContent = "Location isn't supported on this device — you can still order, just add a clear address.";
-    return;
-  }
-  statusEl.textContent = "Getting your location...";
-  navigator.geolocation.getCurrentPosition(pos=>{
-    sharedLat = pos.coords.latitude;
-    sharedLng = pos.coords.longitude;
-    statusEl.textContent = "📍 Location shared — thanks! This helps our delivery team find you.";
-    statusEl.classList.add("ok");
-  }, err=>{
-    statusEl.textContent = "Couldn't get your location — you can still order, just add a clear address.";
+    const doc = await db.collection("customers").doc(phone).get();
+    if(doc.exists){
+      const c = doc.data();
+      document.getElementById("custName").value = c.name || "";
+      document.getElementById("custAddress").value = c.address || "";
+      if(c.area) document.getElementById("custArea").value = c.area;
+      if(c.lat && c.lng){
+        capturedLocation = { lat:c.lat, lng:c.lng };
+      }
+      statusEl.className = "cust-status show found";
+      statusEl.textContent = `Welcome back, ${c.name || "there"}! Your details are filled in below.`;
+    } else {
+      statusEl.className = "cust-status show new";
+      statusEl.textContent = "First time ordering? Add your name and address below — we'll remember them next time.";
+    }
+  } catch(err){
     console.error(err);
-  }, { enableHighAccuracy:true, timeout:10000 });
-}
-
-function validateCheckout(){
-  let valid = true;
-  const fields = [
-    ["custName","errName", v => v.trim().length > 0],
-    ["custPhone","errPhone", v => /^\d{10}$/.test(v.trim())],
-    ["custAddress","errAddress", v => v.trim().length > 0],
-    ["custArea","errArea", v => v.trim().length > 0],
-  ];
-  fields.forEach(([fieldId, errId, test])=>{
-    const val = document.getElementById(fieldId).value;
-    const ok = test(val);
-    document.getElementById(errId).style.display = ok ? "none" : "block";
-    if(!ok) valid = false;
-  });
-  return valid;
-}
-
-// ---------- Order number (atomic counter so numbers never collide) ----------
-function nextOrderNumber(){
-  const counterRef = db.collection("settings").doc("orderCounter");
-  return db.runTransaction(async (tx)=>{
-    const doc = await tx.get(counterRef);
-    const current = doc.exists ? (doc.data().value || 0) : 0;
-    const next = current + 1;
-    tx.set(counterRef, { value: next }, { merge:true });
-    return next;
-  }).then(n => "WV-" + String(n).padStart(4,"0"));
-}
-
-async function placeOrder(){
-  if(ordersClosed){
-    alert("Sorry, we're not accepting new orders right now.");
-    return;
+    statusEl.className = "cust-status show new";
+    statusEl.textContent = "Couldn't check saved details right now, but you can still fill the form and order.";
   }
-  if(!validateCheckout()) return;
-  if(cartCount() === 0){
-    alert("Your cart is empty.");
-    return;
-  }
+  btn.disabled = false; btn.textContent = "🔍 Check";
+}
 
-  const btn = document.getElementById("placeOrderBtn");
-  btn.disabled = true;
-  btn.textContent = "Placing order...";
+async function sendToWhatsApp(){
+  const entries = Object.entries(cart);
+  if(entries.length === 0) return;
 
   const name = document.getElementById("custName").value.trim();
   const phone = document.getElementById("custPhone").value.trim();
   const address = document.getElementById("custAddress").value.trim();
-  const area = document.getElementById("custArea").value.trim();
+  const area = document.getElementById("custArea").value;
   const slot = document.getElementById("custSlot").value;
   const note = document.getElementById("custNote").value.trim();
 
-  const lines = cartLines();
-  const items = lines.map(l => ({
-    name: l.name, te: l.te, unit: l.unit, qty: l.qty,
-    lineTotal: l.lineTotal, unavailable: false
-  }));
-  const total = cartTotal();
-
-  try{
-    const orderNumber = await nextOrderNumber();
-
-    const orderData = {
-      orderNumber, status: "New", name, phone, address, area, slot,
-      items, total, note, agent: "",
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    };
-    if(sharedLat && sharedLng){
-      orderData.lat = sharedLat;
-      orderData.lng = sharedLng;
-    }
-
-    await db.collection("orders").add(orderData);
-
-    // Upsert the customer record (phone as doc id) so admin's Customers tab stays current
-    const customerData = { name, phone, address, area, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
-    if(sharedLat && sharedLng){
-      customerData.lat = sharedLat;
-      customerData.lng = sharedLng;
-    }
-    await db.collection("customers").doc(phone).set(customerData, { merge:true });
-
-    // Remember details for next time, and clear the cart
-    localStorage.setItem("wv_customer", JSON.stringify({ name, phone, address, area }));
-    cart = {};
-    saveCart();
-    updateCartBar();
-    renderProducts();
-
-    document.getElementById("confirmOrderNo").textContent = orderNumber;
-    document.getElementById("confirmTotal").textContent = `${items.length} item${items.length===1?"":"s"} · ₹${total}`;
-    closeOverlay("checkoutOverlay");
-    closeOverlay("cartOverlay");
-    openOverlay("confirmOverlay");
-  } catch(err){
-    console.error(err);
-    alert("Couldn't place your order — please check your connection and try again.");
-  } finally{
-    btn.disabled = ordersClosed;
-    btn.textContent = ordersClosed ? "We're closed right now" : "Place order";
-  }
-}
-
-function startNewOrder(){
-  closeOverlay("confirmOverlay");
-  document.getElementById("custNote").value = "";
-}
-
-// ---------- My Orders ----------
-function openMyOrders(){
-  try{
-    const saved = JSON.parse(localStorage.getItem("wv_customer") || "{}");
-    if(saved.phone) document.getElementById("lookupPhone").value = saved.phone;
-  } catch(e){}
-  document.getElementById("myOrdersResults").innerHTML = "";
-  openOverlay("myOrdersOverlay");
-}
-
-async function findMyOrders(){
-  const phone = document.getElementById("lookupPhone").value.trim();
-  const resultsEl = document.getElementById("myOrdersResults");
-  if(!/^\d{10}$/.test(phone)){
-    resultsEl.innerHTML = `<div class="empty-state">Please enter a valid 10-digit phone number.</div>`;
+  if(!name || phone.length < 10 || !address){
+    alert("Please enter your name, a 10-digit phone number, and your delivery address before ordering.");
     return;
   }
-  resultsEl.innerHTML = `<div class="empty-state">Looking up your orders...</div>`;
+  if(!capturedLocation){
+    alert("Please tap '📍 Share my location' and allow location access before placing your order — this is required so we can find your address accurately.");
+    return;
+  }
+
+  const waBtn = document.getElementById("waBtn");
+  if(waBtn.disabled) return; // guard against double-tap creating duplicate orders
+  waBtn.disabled = true; waBtn.textContent = "Saving your order...";
+
+  const items = entries.map(([key,qty])=>{
+    const { id, unit } = parseCartKey(key);
+    const p = PRODUCTS.find(x=>x.id==id);
+    const price = priceForUnit(p, unit);
+    return { id:p.id, name:p.name, te:p.te||"", qty, unit, price, lineTotal:price*qty };
+  });
+  const total = cartTotal();
+
+  let orderNumber = "";
   try{
-    const snap = await db.collection("orders").where("phone","==",phone).orderBy("createdAt","desc").limit(20).get();
-    if(snap.empty){
-      resultsEl.innerHTML = `<div class="empty-state">No orders found for this number yet.</div>`;
-      return;
+    orderNumber = await getNextOrderNumber();
+
+    const customerData = {
+      name, phone, address, area,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    if(capturedLocation){
+      customerData.lat = capturedLocation.lat;
+      customerData.lng = capturedLocation.lng;
     }
-    resultsEl.innerHTML = snap.docs.map(doc=>{
-      const o = doc.data();
-      const status = o.status || "New";
-      const when = o.createdAt && o.createdAt.toDate ? o.createdAt.toDate().toLocaleString() : "";
-      const itemsSummary = (o.items||[]).map(it => `${it.name} ×${it.qty}${it.unit}`).join(", ");
-      return `
-      <div class="myorder-card">
-        <div class="myorder-head">
-          <div>
-            <div class="myorder-no">${o.orderNumber || doc.id}</div>
-            <div class="myorder-meta">${when}</div>
-          </div>
-          <div style="text-align:right;">
-            <span class="order-badge badge-${status.replace(/\s/g,'')}">${status}</span>
-            <div class="myorder-total">₹${o.total || 0}</div>
-          </div>
-        </div>
-        <div class="myorder-meta">${itemsSummary}</div>
-      </div>`;
-    }).join("");
+    // Save/update the customer profile, keyed by phone number
+    await db.collection("customers").doc(phone).set(customerData, { merge:true });
+
+    const orderData = {
+      orderNumber, name, phone, address, area, slot, note, items, total,
+      status:"New",
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    if(capturedLocation){
+      orderData.lat = capturedLocation.lat;
+      orderData.lng = capturedLocation.lng;
+    }
+    // Save the order for the admin dashboard, keyed by the unique order number so re-submits can't duplicate it
+    await db.collection("orders").doc(orderNumber).set(orderData);
   } catch(err){
     console.error(err);
-    resultsEl.innerHTML = `<div class="empty-state">⚠️ Couldn't load your orders. Please try again.</div>`;
+    alert("Couldn't save your order to our system, but you can still send it on WhatsApp — please double check with us there.");
   }
+
+  let msg = "Hi Weekend Veggies! I'd like to place an order for this weekend:\n\n";
+  if(orderNumber) msg += `Order ${orderNumber}\n\n`;
+  items.forEach(p=>{
+    msg += `• ${p.name}${p.te ? " / "+p.te : ""} — ${p.qty} ${p.unit} (₹${p.lineTotal})\n`;
+  });
+  msg += `\nTotal: ₹${total}\n\n`;
+  msg += `Name: ${name}\nPhone: ${phone}\nAddress: ${address}\nArea: ${area}\nSlot: ${slot}\n`;
+  if(note) msg += `Note: ${note}\n`;
+  if(capturedLocation) msg += `Location: https://maps.google.com/?q=${capturedLocation.lat},${capturedLocation.lng}\n`;
+  msg += "\nPlease confirm availability. Thank you!";
+
+  const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`;
+  window.open(url, "_blank");
+
+  waBtn.disabled = false; waBtn.textContent = "✅ Send order on WhatsApp";
 }
 
-// ---------- Init ----------
-loadCart();
-updateCartBar();
+// Point the "closed" screen's WhatsApp button at your business number (reuses WHATSAPP_NUMBER above)
+document.getElementById("closedWaLink").href =
+  `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent("Hi! I have a question about Weekend Veggies.")}`;
+
+renderChips();
+renderGrid();
+renderDrawer();
+
+// Live-check the admin's manual "close ordering" switch
+db.collection("settings").doc("config").onSnapshot(doc=>{
+  const closed = doc.exists && doc.data().ordersClosed === true;
+  document.getElementById("closedScreen").style.display = closed ? "flex" : "none";
+  document.getElementById("shopContent").style.display = closed ? "none" : "block";
+  document.getElementById("cartBtnTop").style.display = closed ? "none" : "flex";
+}, err=>{
+  console.error("Could not check order status:", err);
+});
+
+// Live-sync the vegetable list & prices from Firestore (edited via the admin dashboard)
+db.collection("products").orderBy("name").onSnapshot(snap=>{
+  PRODUCTS = snap.docs
+    .map(doc=>({ id: doc.id, ...doc.data() }))
+    .filter(p => p.inStock !== false); // hide anything marked out of stock
+  productsLoaded = true;
+  renderGrid();
+  renderDrawer();
+}, err=>{
+  console.error("Could not load products:", err);
+  productsLoaded = true;
+  renderGrid();
+});
+
 </script>
+
 </body>
 </html>
