@@ -321,6 +321,7 @@
     <button class="tab-btn" id="tabHistoryBtn" onclick="showTab('history')">🗂 Order History</button>
     <button class="tab-btn" id="tabCustomersBtn" onclick="showTab('customers')">👤 Customers</button>
     <button class="tab-btn" id="tabProductsBtn" onclick="showTab('products')">🥕 Products</button>
+    <button class="tab-btn" id="tabBucketsBtn" onclick="showTab('buckets')">🧺 Family Buckets</button>
     <button class="tab-btn" id="tabReportsBtn" onclick="showTab('reports')">📊 Reports</button>
   </div>
 
@@ -334,7 +335,6 @@
         <div style="display:flex; align-items:center; gap:8px;">
           <label style="font-size:12.5px; font-weight:700; color:var(--ink-soft);">Group by:</label>
           <select class="status-select" id="groupBySelect" onchange="renderOrderTabs()">
-            <option value="area">order number</option>
             <option value="area">Delivery Area</option>
             <option value="agent">Delivery Agent</option>
           </select>
@@ -420,6 +420,43 @@
         </div>
       </div>
       <div id="productsList"></div>
+    </div>
+    <div class="panel-section" id="bucketsPanel">
+      <div class="products-toolbar">
+        <button class="btn btn-outline" id="seedBucketsBtn" onclick="seedBuckets()">🧺 Load starter buckets (₹299 / ₹399 / ₹499)</button>
+        <button class="btn btn-primary" onclick="toggleAddBucketForm()">➕ Add bucket</button>
+      </div>
+      <div class="add-product-card" id="addBucketCard">
+        <h3>Add a new family bucket</h3>
+        <div class="pform-grid">
+          <div>
+            <label>Bucket name</label>
+            <input id="newBucketName" placeholder="e.g. Basic Family Bucket">
+          </div>
+          <div>
+            <label>Emoji icon</label>
+            <input id="newBucketIcon" placeholder="e.g. 🧺" value="🧺">
+          </div>
+          <div>
+            <label>Price (₹)</label>
+            <input id="newBucketPrice" type="number" placeholder="299">
+          </div>
+          <div>
+            <label>Photo URL (optional)</label>
+            <input id="newBucketPhoto" placeholder="https://...">
+          </div>
+        </div>
+        <label style="font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--ink-soft); display:block; margin:12px 0 4px;">Vegetables included (one per line)</label>
+        <textarea id="newBucketItems" rows="6" style="width:100%; padding:9px 10px; border:1.5px solid var(--line); border-radius:8px; font-size:13.5px; font-family:inherit; resize:vertical;" placeholder="Tomato - 1kg
+Onion - 1kg
+Potato - 1kg
+Coriander - 2 bunch"></textarea>
+        <div class="pform-actions">
+          <button class="btn btn-primary" onclick="addBucket()">Save bucket</button>
+          <button class="btn btn-outline" onclick="toggleAddBucketForm()">Cancel</button>
+        </div>
+      </div>
+      <div id="bucketsList"></div>
     </div>
     <div class="panel-section" id="reportsPanel">
       <div class="products-toolbar" style="justify-content:space-between;">
@@ -617,6 +654,7 @@ function exportReportCsv(){
 let ordersUnsub = null;
 let customersUnsub = null;
 let productsUnsub = null;
+let bucketsUnsub = null;
 let agentsUnsub = null;
 let settingsUnsub = null;
 let allOrderDocs = [];
@@ -673,6 +711,23 @@ const STARTER_PRODUCTS = [
   { name:"Lettuce", te:"లెట్యూస్", icon:"🥬", cat:"salad", price:40, unit:"pc" },
 ];
 
+// One-time starter list for the "Load starter buckets" button — 3 ready-made family combos.
+// Admins can edit price/items/visibility for each afterward in the Buckets tab.
+const STARTER_BUCKETS = [
+  {
+    name: "Basic Family Bucket", icon: "🧺", price: 299,
+    itemsText: "Tomato - 1kg\nOnion - 1kg\nPotato - 1kg\nCarrot - 500g\nCoriander - 2 bunch\nGreen Chilli - 250g"
+  },
+  {
+    name: "Popular Family Bucket", icon: "🧺", price: 399,
+    itemsText: "Tomato - 1kg\nOnion - 1kg\nPotato - 1kg\nCarrot - 500g\nBeans - 500g\nCabbage - 1pc\nSpinach - 2 bunch\nCoriander - 2 bunch\nCurry Leaves - 2 bunch\nGreen Chilli - 250g"
+  },
+  {
+    name: "Deluxe Family Bucket", icon: "🧺", price: 499,
+    itemsText: "Tomato - 1.5kg\nOnion - 1kg\nPotato - 1kg\nCarrot - 500g\nBeans - 500g\nCauliflower - 1pc\nCabbage - 1pc\nCapsicum - 500g\nSpinach - 2 bunch\nCoriander - 2 bunch\nCurry Leaves - 2 bunch\nGinger - 250g\nGarlic - 250g\nGreen Chilli - 250g"
+  },
+];
+
 function doLogin(){
   const email = document.getElementById("loginEmail").value.trim();
   const pass = document.getElementById("loginPass").value;
@@ -696,6 +751,7 @@ auth.onAuthStateChanged(user=>{
     if(ordersUnsub) ordersUnsub();
     if(customersUnsub) customersUnsub();
     if(productsUnsub) productsUnsub();
+    if(bucketsUnsub) bucketsUnsub();
     if(agentsUnsub) agentsUnsub();
     if(settingsUnsub) settingsUnsub();
   }
@@ -706,11 +762,13 @@ function showTab(tab){
   document.getElementById("tabHistoryBtn").classList.toggle("active", tab==="history");
   document.getElementById("tabCustomersBtn").classList.toggle("active", tab==="customers");
   document.getElementById("tabProductsBtn").classList.toggle("active", tab==="products");
+  document.getElementById("tabBucketsBtn").classList.toggle("active", tab==="buckets");
   document.getElementById("tabReportsBtn").classList.toggle("active", tab==="reports");
   document.getElementById("pendingPanel").classList.toggle("show", tab==="pending");
   document.getElementById("historyPanel").classList.toggle("show", tab==="history");
   document.getElementById("customersPanel").classList.toggle("show", tab==="customers");
   document.getElementById("productsPanel").classList.toggle("show", tab==="products");
+  document.getElementById("bucketsPanel").classList.toggle("show", tab==="buckets");
   document.getElementById("reportsPanel").classList.toggle("show", tab==="reports");
   if(tab==="reports") renderReport();
 }
@@ -1151,9 +1209,13 @@ function orderCardHtml(doc){
   const orderNo = o.orderNumber || doc.id;
   const itemsHtml = (o.items||[]).map((it, idx)=>{
     const unavailable = it.unavailable === true;
+    const isBucket = it.type === "bucket";
     return `
     <div class="order-item-row">
-      <span style="${unavailable ? 'opacity:0.55;' : ''}">${it.name}${it.te ? " / "+it.te : ""} × ${it.qty} ${it.unit}</span>
+      <span style="${unavailable ? 'opacity:0.55;' : ''}">
+        ${isBucket ? "🧺 " : ""}${it.name}${it.te ? " / "+it.te : ""} × ${it.qty} ${it.unit}
+        ${isBucket && it.itemsText ? `<div style="font-size:11px; color:var(--ink-soft); font-weight:400; margin-top:2px;">${it.itemsText.split(String.fromCharCode(10)).filter(Boolean).join(" · ")}</div>` : ""}
+      </span>
       <span style="display:flex; align-items:center; gap:10px; padding-left:12px;">
         <label class="item-avail-toggle">
           <input type="checkbox" ${unavailable ? "checked" : ""} onchange="toggleItemAvailability('${doc.id}', ${idx})">
@@ -1303,6 +1365,37 @@ function attachListeners(){
       </div>`;
     }).join("");
   });
+
+  bucketsUnsub = db.collection("buckets").orderBy("price").onSnapshot(snap=>{
+    const list = document.getElementById("bucketsList");
+    if(snap.empty){
+      list.innerHTML = `<div class="empty-state">No family buckets yet. Click "Load starter buckets" for ready-made ₹299 / ₹399 / ₹499 combos, or "Add bucket" to build your own.</div>`;
+      return;
+    }
+    list.innerHTML = snap.docs.map(doc=>{
+      const b = doc.data();
+      const hidden = b.active === false;
+      const itemCount = (b.itemsText || "").split("\n").map(s=>s.trim()).filter(Boolean).length;
+      return `
+      <div class="prod-row" style="${hidden ? 'opacity:0.55;' : ''} flex-wrap:wrap; align-items:flex-start;">
+        <div class="prod-icon">${b.icon || "🧺"}</div>
+        <div class="prod-info">
+          <div class="prod-name">${b.name} ${hidden ? '<span style="color:var(--tomato); font-weight:700; font-size:11.5px;">· HIDDEN FROM CUSTOMERS</span>' : ''}</div>
+          <div class="prod-sub">${itemCount} item${itemCount===1?'':'s'} included</div>
+        </div>
+        <span style="font-size:12.5px; color:var(--ink-soft);">₹</span>
+        <input class="prod-price-input" type="number" value="${b.price}"
+          onchange="updateBucketField('${doc.id}','price', Number(this.value))">
+        <button class="btn btn-outline" style="padding:6px 10px; font-size:12px;" onclick="updateBucketField('${doc.id}','active', ${hidden})">${hidden ? '✅ Show to customers' : '🚫 Hide from customers'}</button>
+        <button class="icon-btn" title="Delete bucket" onclick="deleteBucket('${doc.id}','${(b.name||'').replace(/'/g,"")}')">🗑️</button>
+        <textarea style="flex:1 1 100%; margin-top:8px; padding:9px 10px; border:1.5px solid var(--line); border-radius:8px; font-size:12.5px; font-family:inherit; min-height:80px; resize:vertical;"
+          placeholder="One vegetable per line, e.g. Tomato - 1kg"
+          onchange="updateBucketField('${doc.id}','itemsText', this.value)">${b.itemsText || ""}</textarea>
+      </div>`;
+    }).join("");
+  }, err=>{
+    console.error("Buckets load error:", err);
+  });
 }
 
 async function toggleOrdering(){
@@ -1443,6 +1536,79 @@ async function seedProducts(){
     console.error(err);
   }
   btn.disabled = false; btn.textContent = "🌱 Load starter list (adds any missing items)";
+}
+
+function toggleAddBucketForm(){
+  document.getElementById("addBucketCard").classList.toggle("show");
+}
+
+async function addBucket(){
+  const name = document.getElementById("newBucketName").value.trim();
+  const icon = document.getElementById("newBucketIcon").value.trim() || "🧺";
+  const price = Number(document.getElementById("newBucketPrice").value);
+  const photo = document.getElementById("newBucketPhoto").value.trim();
+  const itemsText = document.getElementById("newBucketItems").value.trim();
+
+  if(!name || !price){
+    alert("Please enter at least a bucket name and a price.");
+    return;
+  }
+
+  const data = { name, icon, price, itemsText, active: true };
+  if(photo) data.photo = photo;
+
+  try{
+    await db.collection("buckets").add(data);
+    document.getElementById("newBucketName").value = "";
+    document.getElementById("newBucketIcon").value = "🧺";
+    document.getElementById("newBucketPrice").value = "";
+    document.getElementById("newBucketPhoto").value = "";
+    document.getElementById("newBucketItems").value = "";
+    toggleAddBucketForm();
+  } catch(err){
+    alert("Couldn't add the bucket — please try again.");
+    console.error(err);
+  }
+}
+
+function updateBucketField(bucketId, field, value){
+  db.collection("buckets").doc(bucketId).update({ [field]: value }).catch(err=>{
+    alert("Couldn't save that change — check your connection and try again.");
+    console.error(err);
+  });
+}
+
+function deleteBucket(bucketId, name){
+  if(!confirm(`Delete "${name}"? This can't be undone, and it will disappear from the customer site immediately.`)) return;
+  db.collection("buckets").doc(bucketId).delete().catch(err=>{
+    alert("Couldn't delete the bucket — please try again.");
+    console.error(err);
+  });
+}
+
+async function seedBuckets(){
+  const btn = document.getElementById("seedBucketsBtn");
+  btn.disabled = true; btn.textContent = "Checking...";
+  try{
+    const existingSnap = await db.collection("buckets").get();
+    if(existingSnap.size > 0){
+      if(!confirm(`You already have ${existingSnap.size} bucket(s) set up. Add the 3 starter buckets (₹299 / ₹399 / ₹499) as well?`)){
+        btn.disabled = false; btn.textContent = "🧺 Load starter buckets (₹299 / ₹399 / ₹499)";
+        return;
+      }
+    }
+    const batch = db.batch();
+    STARTER_BUCKETS.forEach(b=>{
+      const ref = db.collection("buckets").doc();
+      batch.set(ref, { ...b, active:true });
+    });
+    await batch.commit();
+    alert("Added 3 starter family buckets (₹299, ₹399, ₹499) — edit their vegetable lists anytime in this tab.");
+  } catch(err){
+    alert("Couldn't load the starter buckets — please try again.");
+    console.error(err);
+  }
+  btn.disabled = false; btn.textContent = "🧺 Load starter buckets (₹299 / ₹399 / ₹499)";
 }
 
 const STATUS_MESSAGES = {
