@@ -104,6 +104,31 @@
     opacity:0.11; transform:rotate(12deg); z-index:1; user-select:none;
   }
 
+  /* ---------- Family Buckets ---------- */
+  .buckets-section{max-width:1100px; margin:26px auto 0; padding:0 20px;}
+  .buckets-title{font-size:20px; margin:0 0 4px;}
+  .buckets-sub{font-size:13px; color:var(--ink-soft); margin:0 0 14px;}
+  .buckets-row{display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:16px;}
+  .bucket-card{
+    background:var(--card); border:2px solid var(--green); border-radius:16px;
+    padding:20px 16px 16px; box-shadow:var(--shadow); position:relative;
+    display:flex; flex-direction:column;
+  }
+  .bucket-price-tag{
+    position:absolute; top:-13px; right:14px;
+    background:var(--tomato); color:#fff; font-weight:700; font-family:Georgia,serif;
+    font-size:15px; padding:5px 12px; border-radius:8px;
+    box-shadow:2px 3px 0 rgba(36,48,31,0.15);
+  }
+  .bucket-icon{font-size:36px; margin-bottom:4px;}
+  .bucket-name{font-size:16px; font-weight:700; margin-bottom:8px;}
+  .bucket-items{font-size:12.5px; color:var(--ink-soft); line-height:1.65; margin-bottom:14px; flex:1;}
+  .bucket-qty-row{display:flex; align-items:center; justify-content:space-between; gap:8px;}
+  @media (max-width:480px){
+    .buckets-row{grid-template-columns:1fr 1fr; gap:10px;}
+    .bucket-card{padding:16px 12px 12px;}
+  }
+
   /* ---------- Category chips ---------- */
   .chip-row{
     max-width:1100px; margin:22px auto 0; padding:0 20px;
@@ -360,6 +385,12 @@
   </div>
 </div>
 
+<div class="buckets-section" id="bucketsSection" style="display:none;">
+  <h2 class="display buckets-title">🧺 Family Buckets</h2>
+  <p class="buckets-sub">Ready-made combos at one fixed price — no per-item math, just add and go.</p>
+  <div class="buckets-row" id="bucketsRow"></div>
+</div>
+
 <div class="chip-row" id="chipRow"></div>
 <div class="grid" id="grid"></div>
 
@@ -474,8 +505,9 @@ const catColor = id => (CATEGORIES.find(c=>c.id===id)||{}).color || "var(--green
 const catName  = id => (CATEGORIES.find(c=>c.id===id)||{}).name || "";
 
 let activeCat = "all";
-let cart = {}; // "productId::unit" -> qty
+let cart = {}; // "productId::unit" -> qty, or "bucket::bucketId" -> qty
 let PRODUCTS = []; // populated live from Firestore below
+let BUCKETS = []; // family buckets, populated live from Firestore below
 let productsLoaded = false;
 let capturedLocation = null; // { lat, lng } once customer shares location
 let selectedUnitFor = {}; // productId -> currently chosen unit (for items with a 2nd size)
@@ -501,6 +533,14 @@ function parseCartKey(key){
   const idx = key.lastIndexOf("::");
   return { id: key.slice(0, idx), unit: key.slice(idx+2) };
 }
+// Family buckets share the same flat `cart` object as products, distinguished by a "bucket::" prefix
+function bucketCartKey(bucketId){ return "bucket::" + bucketId; }
+function isBucketKey(key){ return key.indexOf("bucket::") === 0; }
+function bucketIdFromKey(key){ return key.slice("bucket::".length); }
+function bucketItemLines(itemsText){
+  return (itemsText || "").split("\n").map(s => s.trim()).filter(Boolean);
+}
+
 
 function useMyLocation(){
   const statusEl = document.getElementById("locStatus");
@@ -645,11 +685,46 @@ function renderGrid(){
   }).join("");
 }
 
+function renderBuckets(){
+  const section = document.getElementById("bucketsSection");
+  const row = document.getElementById("bucketsRow");
+  const activeBuckets = BUCKETS.filter(b => b.active !== false);
+  if(activeBuckets.length === 0){
+    section.style.display = "none";
+    return;
+  }
+  section.style.display = "block";
+  row.innerHTML = activeBuckets.map(b => {
+    const key = bucketCartKey(b.id);
+    const qty = cart[key] || 0;
+    const lines = bucketItemLines(b.itemsText);
+    const photoHtml = b.photo
+      ? `<img class="veg-photo" src="${b.photo}" alt="${b.name}" onerror="this.outerHTML='<div class=&quot;bucket-icon&quot;>${b.icon||'🧺'}</div>'">`
+      : `<div class="bucket-icon">${b.icon || "🧺"}</div>`;
+    return `
+    <div class="bucket-card">
+      <div class="bucket-price-tag">₹${b.price}</div>
+      ${photoHtml}
+      <div class="bucket-name">${b.name}</div>
+      <div class="bucket-items">${lines.map(l => `• ${l}`).join("<br>")}</div>
+      <div class="bucket-qty-row">
+        <div class="stepper">
+          <button onclick="changeQty('${key}',-1)">−</button>
+          <span>${qty}</span>
+          <button onclick="changeQty('${key}',1)">+</button>
+        </div>
+        <button class="add-btn" onclick="changeQty('${key}',1)">${qty>0?'Added':'Add'}</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+
 function changeQty(id, delta){
   const current = cart[id] || 0;
   const next = Math.max(0, current + delta);
   if(next === 0){ delete cart[id]; } else { cart[id] = next; }
   renderGrid();
+  renderBuckets();
   renderCartCount();
   renderDrawer();
 }
@@ -657,6 +732,7 @@ function changeQty(id, delta){
 function removeCartItem(key){
   delete cart[key];
   renderGrid();
+  renderBuckets();
   renderCartCount();
   renderDrawer();
 }
@@ -668,6 +744,10 @@ function renderCartCount(){
 
 function cartTotal(){
   return Object.entries(cart).reduce((sum,[key,qty])=>{
+    if(isBucketKey(key)){
+      const b = BUCKETS.find(x => x.id === bucketIdFromKey(key));
+      return sum + (b ? b.price*qty : 0);
+    }
     const { id, unit } = parseCartKey(key);
     const p = PRODUCTS.find(x=>x.id==id);
     return sum + (p ? priceForUnit(p, unit)*qty : 0);
@@ -688,6 +768,26 @@ function renderDrawer(){
   waBtn.disabled = false;
 
   let itemsHtml = entries.map(([key,qty])=>{
+    if(isBucketKey(key)){
+      const b = BUCKETS.find(x => x.id === bucketIdFromKey(key));
+      if(!b) return "";
+      const lines = bucketItemLines(b.itemsText);
+      return `
+      <div class="cart-item">
+        <div class="veg-icon">${b.icon || "🧺"}</div>
+        <div class="ci-info">
+          <div class="ci-name">${b.name}</div>
+          <div class="ci-price">₹${b.price} each · ₹${b.price*qty}</div>
+          <div class="ci-price" style="margin-top:2px;">${lines.join(", ")}</div>
+        </div>
+        <div class="stepper">
+          <button onclick="changeQty('${key}',-1)">−</button>
+          <span>${qty}</span>
+          <button onclick="changeQty('${key}',1)">+</button>
+        </div>
+        <button class="cart-delete-btn" onclick="removeCartItem('${key}')" title="Remove item">🗑️</button>
+      </div>`;
+    }
     const { id, unit } = parseCartKey(key);
     const p = PRODUCTS.find(x=>x.id==id);
     if(!p) return "";
@@ -809,11 +909,20 @@ async function sendToWhatsApp(){
   waBtn.disabled = true; waBtn.textContent = "Saving your order...";
 
   const items = entries.map(([key,qty])=>{
+    if(isBucketKey(key)){
+      const b = BUCKETS.find(x => x.id === bucketIdFromKey(key));
+      if(!b) return null;
+      return {
+        type: "bucket", id: b.id, name: b.name, te: "", qty, unit: "bucket",
+        price: b.price, lineTotal: b.price*qty, itemsText: b.itemsText || ""
+      };
+    }
     const { id, unit } = parseCartKey(key);
     const p = PRODUCTS.find(x=>x.id==id);
+    if(!p) return null;
     const price = priceForUnit(p, unit);
     return { id:p.id, name:p.name, te:p.te||"", qty, unit, price, lineTotal:price*qty };
-  });
+  }).filter(Boolean);
   const total = cartTotal();
 
   let orderNumber = "";
@@ -850,7 +959,12 @@ async function sendToWhatsApp(){
   let msg = "Hi Weekend Veggies! I'd like to place an order for this weekend:\n\n";
   if(orderNumber) msg += `Order ${orderNumber}\n\n`;
   items.forEach(p=>{
-    msg += `• ${p.name}${p.te ? " / "+p.te : ""} — ${p.qty} ${p.unit} (₹${p.lineTotal})\n`;
+    if(p.type === "bucket"){
+      msg += `• 🧺 ${p.name} — ${p.qty} × ₹${p.price} (₹${p.lineTotal})\n`;
+      bucketItemLines(p.itemsText).forEach(line => { msg += `   - ${line}\n`; });
+    } else {
+      msg += `• ${p.name}${p.te ? " / "+p.te : ""} — ${p.qty} ${p.unit} (₹${p.lineTotal})\n`;
+    }
   });
   msg += `\nTotal: ₹${total}\n\n`;
   msg += `Name: ${name}\nPhone: ${phone}\nAddress: ${address}\nArea: ${area}\nSlot: ${slot}\n`;
@@ -894,6 +1008,15 @@ db.collection("products").orderBy("name").onSnapshot(snap=>{
   console.error("Could not load products:", err);
   productsLoaded = true;
   renderGrid();
+});
+
+// Live-sync family buckets from Firestore (edited via the admin dashboard's Buckets tab)
+db.collection("buckets").orderBy("price").onSnapshot(snap=>{
+  BUCKETS = snap.docs.map(doc=>({ id: doc.id, ...doc.data() }));
+  renderBuckets();
+  renderDrawer();
+}, err=>{
+  console.error("Could not load family buckets:", err);
 });
 
 </script>
